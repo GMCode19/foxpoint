@@ -90,32 +90,41 @@ function NewPassword({ done }) {
 }
 
 function Auth() {
-  const [mode, setMode] = useState('login'), [email, setEmail] = useState(''), [pw, setPw] = useState(''), [msg, setMsg] = useState('')
+  // mode: login | signup | reset
+  const [mode, setMode] = useState('login'), [email, setEmail] = useState(''), [pw, setPw] = useState('')
+  const [msg, setMsg] = useState(null), [busy, setBusy] = useState(false)
+  const go = m => { setMode(m); setMsg(null) }
   async function submit(e) {
-    e.preventDefault(); setMsg('')
-    const { data, error } = mode === 'login'
-      ? await sb.auth.signInWithPassword({ email, password: pw })
-      : await sb.auth.signUp({ email, password: pw, options: { emailRedirectTo: APP_URL } })
-    if (error) return setMsg(/Invalid login/i.test(error.message) ? 'Email o password non corretti' : error.message)
-    if (mode === 'signup' && !data.session) setMsg('Registrazione fatta: controlla la mail per confermare, poi accedi.')
+    e.preventDefault(); setMsg(null); setBusy(true)
+    try {
+      if (mode === 'reset') {
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL })
+        if (error) return setMsg({ bad: true, t: /rate limit/i.test(error.message) ? 'Troppe richieste ravvicinate: riprova tra qualche minuto.' : error.message })
+        return setMsg({ t: `Fatto! Abbiamo mandato a ${email} un link per scegliere una nuova password. Controlla anche lo spam.` })
+      }
+      const { data, error } = mode === 'login'
+        ? await sb.auth.signInWithPassword({ email, password: pw })
+        : await sb.auth.signUp({ email, password: pw, options: { emailRedirectTo: APP_URL } })
+      if (error) return setMsg({ bad: true, t: /Invalid login/i.test(error.message) ? 'Email o password non corretti.' : /rate limit/i.test(error.message) ? 'Troppe richieste ravvicinate: riprova tra qualche minuto.' : error.message })
+      if (mode === 'signup' && !data.session) setMsg({ t: 'Registrazione fatta! Controlla la mail (anche lo spam) per confermare, poi accedi.' })
+    } finally { setBusy(false) }
   }
-  async function forgot() {
-    if (!email) return setMsg('Scrivi prima la tua email qui sopra')
-    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL })
-    setMsg(error ? error.message : 'Ti abbiamo mandato una mail con il link per scegliere una nuova password.')
-  }
+  const title = { login: 'Fox Point', signup: 'Crea il tuo account', reset: 'Password dimenticata' }[mode]
+  const cta = { login: 'Accedi', signup: 'Registrati', reset: 'Inviami il link' }[mode]
   return (
     <form className="card c" onSubmit={submit}>
       <img className="logo big" src={LOGO} alt="Lake Fox" />
-      <h1>Fox Point</h1>
-      <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-      <input type="password" placeholder="Password (min. 6 caratteri)" value={pw} onChange={e => setPw(e.target.value)} minLength={6} required />
-      <button>{mode === 'login' ? 'Accedi' : 'Registrati'}</button>
-      {msg && <p className="msg">{msg}</p>}
-      <button type="button" className="ghost" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}>
-        {mode === 'login' ? 'Non hai un account? Registrati' : 'Hai già un account? Accedi'}
-      </button>
-      {mode === 'login' && <button type="button" className="link" onClick={forgot}>Password dimenticata?</button>}
+      <h1>{title}</h1>
+      {mode === 'reset' && <p className="mut note">Scrivi l'email con cui ti sei registrato: ti mandiamo un link per scegliere una nuova password.</p>}
+      <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus={mode === 'reset'} />
+      {mode !== 'reset' && <input type="password" placeholder="Password (min. 6 caratteri)" value={pw} onChange={e => setPw(e.target.value)} minLength={6} required />}
+      <button disabled={busy}>{busy ? 'Attendi…' : cta}</button>
+      {msg && <p className={'notice' + (msg.bad ? ' bad' : '')}>{msg.t}</p>}
+      {mode === 'login' && <>
+        <button type="button" className="ghost" onClick={() => go('signup')}>Non hai un account? Registrati</button>
+        <button type="button" className="link" onClick={() => go('reset')}>Password dimenticata?</button>
+      </>}
+      {mode !== 'login' && <button type="button" className="ghost" onClick={() => go('login')}>Torna all'accesso</button>}
     </form>
   )
 }
