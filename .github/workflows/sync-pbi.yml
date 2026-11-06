@@ -1,0 +1,20 @@
+name: Aggiorna classifica PBI
+
+on:
+  schedule:
+    - cron: '17 5 * * *'   # ogni mattina verso le 6-7 ora italiana
+  workflow_dispatch:         # pulsante "Run workflow" per aggiornarla subito
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/sync-pbi.mjs
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
