@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 // Riquadro per scegliere l'inquadratura della foto prima del caricamento.
 // Telefono: trascina con un dito, allarga/stringi con due dita. Computer: trascina con il mouse, rotellina per lo zoom.
 // Quello che si vede nel riquadro è esattamente quello che comparirà sul manifesto.
+// Si può rimpicciolire fino a vedere la foto intera (es. un manifesto verticale): lo spazio libero
+// viene riempito con la foto stessa sfocata e scurita, uguale nell'anteprima e nella foto salvata.
 const OUT = 640, MAX_ZOOM = 4
 
 export function CropModal({ file, name, onCancel, onSave }) {
@@ -29,10 +31,12 @@ export function CropModal({ file, name, onCancel, onSave }) {
   }, [])
 
   // geometria: la foto copre sempre tutto il riquadro, senza bordi vuoti
-  const base = nat ? V / Math.min(nat.w, nat.h) : 1
+  const base = nat ? V / Math.min(nat.w, nat.h) : 1                  // zoom 1 = la foto riempie il riquadro
+  const minZ = nat ? Math.min(nat.w, nat.h) / Math.max(nat.w, nat.h) : 1   // zoom minimo = foto intera
   const w = nat ? nat.w * base * z : V, h = nat ? nat.h * base * z : V
+  // la foto non può uscire dal riquadro; se è più piccola del riquadro su un lato resta centrata su quel lato
   const clamp = v => {
-    const mx = ((nat ? nat.w * base * v.z : V) - V) / 2, my = ((nat ? nat.h * base * v.z : V) - V) / 2
+    const mx = Math.max(0, ((nat ? nat.w * base * v.z : V) - V) / 2), my = Math.max(0, ((nat ? nat.h * base * v.z : V) - V) / 2)
     return { z: v.z, x: Math.max(-mx, Math.min(mx, v.x)), y: Math.max(-my, Math.min(my, v.y)) }
   }
   const left = (V - w) / 2 + view.x, top = (V - h) / 2 + view.y
@@ -48,7 +52,7 @@ export function CropModal({ file, name, onCancel, onSave }) {
   function zoomTo(target, focus = { x: V / 2, y: V / 2 }) {
     const cx = focus.x - V / 2, cy = focus.y - V / 2
     setView(v => {
-      const nz = Math.max(1, Math.min(MAX_ZOOM, typeof target === 'function' ? target(v.z) : target)), k = nz / v.z
+      const nz = Math.max(minZ, Math.min(MAX_ZOOM, typeof target === 'function' ? target(v.z) : target)), k = nz / v.z
       return clamp({ z: nz, x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k })
     })
   }
@@ -84,9 +88,18 @@ export function CropModal({ file, name, onCancel, onSave }) {
   async function save() {
     setBusy(true); setError('')
     try {
-      const k = base * z, c = document.createElement('canvas'); c.width = c.height = OUT
-      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'
-      g.drawImage(imgRef.current, -left / k, -top / k, V / k, V / k, 0, 0, OUT, OUT)
+      const img = imgRef.current, sc = OUT / V
+      const c = document.createElement('canvas'); c.width = c.height = OUT
+      const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'
+      if (w < V - 0.5 || h < V - 0.5) {
+        // sfondo: la foto ridotta a 24px e riallargata (sfocatura che funziona su tutti i browser, Safari compreso)
+        const t = document.createElement('canvas'); t.width = t.height = 24
+        const side = Math.min(nat.w, nat.h)
+        t.getContext('2d').drawImage(img, (nat.w - side) / 2, (nat.h - side) / 2, side, side, 0, 0, 24, 24)
+        g.drawImage(t, -OUT * 0.08, -OUT * 0.08, OUT * 1.16, OUT * 1.16)
+        g.fillStyle = 'rgba(11, 8, 16, 0.45)'; g.fillRect(0, 0, OUT, OUT)
+      }
+      g.drawImage(img, left * sc, top * sc, w * sc, h * sc)
       const toBlob = type => new Promise(r => c.toBlob(r, type, 0.85))
       let blob = await toBlob('image/webp')
       if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/jpeg')   // Safari meno recenti
@@ -100,6 +113,7 @@ export function CropModal({ file, name, onCancel, onSave }) {
         <h2>Foto di {name}</h2>
         <p className="mut note">Trascina per spostare, allarga con due dita (o usa la rotellina) per ingrandire.</p>
         <div className="crop-box" ref={box} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+          {src && nat && z < 1 && <img className="crop-bg" src={src} alt="" draggable={false} />}
           {src && <img ref={imgRef} src={src} alt="" draggable={false} onLoad={onLoad}
             onError={() => setError('Formato immagine non supportato: prova con una foto JPG o PNG')}
             style={{ width: w, height: h, transform: `translate(${left}px, ${top}px)`, opacity: nat ? 1 : 0 }} />}
@@ -107,9 +121,13 @@ export function CropModal({ file, name, onCancel, onSave }) {
         </div>
         <label className="crop-zoom">
           <span>➖</span>
-          <input type="range" min="1" max={MAX_ZOOM} step="0.01" value={z} onChange={e => zoomTo(+e.target.value)} aria-label="Zoom" />
+          <input type="range" min={minZ} max={MAX_ZOOM} step="0.01" value={z} onChange={e => zoomTo(+e.target.value)} aria-label="Zoom" />
           <span>➕</span>
         </label>
+        {minZ < 0.98 && <div className="crop-fit">
+          <button type="button" className={'ghost' + (z <= minZ + 0.001 ? ' on' : '')} onClick={() => zoomTo(minZ)}>Foto intera</button>
+          <button type="button" className={'ghost' + (Math.abs(z - 1) < 0.001 ? ' on' : '')} onClick={() => zoomTo(1)}>Riempi</button>
+        </div>}
         <label className="chk crop-consent">
           <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />
           {name} mi ha dato il consenso a mettere questa foto nell'app del team (se è minorenne, un suo genitore).
