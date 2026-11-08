@@ -45,6 +45,30 @@ async function fetchAll(build) {
 const LOGO = import.meta.env.BASE_URL + 'logo.png'
 const APP_URL = window.location.origin + import.meta.env.BASE_URL
 const SYNC_URL = 'https://github.com/GMCode19/foxpoint/actions/workflows/sync-pbi.yml'
+const PHOTO_BUCKET = 'foto-bersagli'
+// riduce e comprime la foto nel browser prima del caricamento (quadrata 480px, ~30-60 KB)
+async function compressPhoto(file) {
+  if (!file.type.startsWith('image/')) throw new Error('Il file scelto non è un\'immagine')
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ko(new Error('Formato immagine non supportato: prova con una foto JPG o PNG')); i.src = url })
+    const S = 480, side = Math.min(img.naturalWidth, img.naturalHeight)
+    const c = document.createElement('canvas'); c.width = c.height = S
+    c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2.6, side, side, 0, 0, S, S)
+    const toBlob = type => new Promise(r => c.toBlob(r, type, 0.82))
+    let blob = await toBlob('image/webp')
+    if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/jpeg')   // Safari meno recenti
+    return { blob, ext: blob.type === 'image/webp' ? 'webp' : 'jpg' }
+  } finally { URL.revokeObjectURL(url) }
+}
+async function loadPhotos(team) {
+  const { data, error } = await sb.from('blader_photos').select('blader_id, path').eq('team_id', team)
+  if (error || !data?.length) return {}
+  const { data: signed } = await sb.storage.from(PHOTO_BUCKET).createSignedUrls(data.map(p => p.path), 12 * 3600)
+  const out = {}
+  data.forEach((p, i) => { if (signed?.[i]?.signedUrl) out[p.blader_id] = signed[i].signedUrl })
+  return out
+}
 const todayLocal = () => new Date().toLocaleDateString('sv-SE')
 // impedisce che un doppio clic invii due volte la stessa azione
 const inflight = new Set()
@@ -177,7 +201,8 @@ function Team({ m, out }) {
   const team = m.team_id, me = m.bladers.id, admin = m.role === 'admin'
   const [tab, setTab] = useState('rank'), [pid, setPid] = useState(me)
   const [d, setD] = useState({ board: [], bounties: [], claims: [], reqs: [], bl: {}, led: [], tours: [], entries: [], tiers: {}, tp: {},
-    tourById: {}, entryById: {}, claimById: {}, bountyById: {} })
+    tourById: {}, entryById: {}, claimById: {}, bountyById: {}, photos: {} })
+  const [zoom, setZoom] = useState(null)
   const [ready, setReady] = useState(false)
 
   const load = useCallback(async () => {
@@ -197,9 +222,10 @@ function Team({ m, out }) {
         all('ranked_tiers', x => x.order('sort')),
         all('ranked_tier_points', x => x.order('tier').order('phase')),
       ])
+      const photos = await loadPhotos(team).catch(() => ({}))   // le foto non devono mai bloccare l'app
       const byId = a => Object.fromEntries(a.map(x => [x.id, x]))
       setD({
-        board, bounties, claims, reqs, led, tours, entries,
+        board, bounties, claims, reqs, led, tours, entries, photos,
         bl: byId(bl), tourById: byId(tours), entryById: byId(entries), claimById: byId(claims), bountyById: byId(bounties),
         tiers: Object.fromEntries(tiers.map(t => [t.tier, t])),
         tp: Object.fromEntries(tp.map(r => [r.tier + ':' + r.phase, r.points])),
@@ -233,6 +259,33 @@ function Team({ m, out }) {
     const why = prompt(`Revocare la vittoria di ${nick(c.hunter_id)} su ${nick(c.target_id)} (${c.value_snapshot} pt)?\nI punti verranno tolti dalla classifica.\n\nMotivo (facoltativo):`)
     if (why === null) return
     act('revoke_claim', { p_claim: c.id, p_note: why })
+  }
+  async function uploadPhoto(b, file) {
+    const name = nick(b.target_id)
+    if (!confirm(`${name} ti ha dato il consenso a mettere la sua foto nell'app del team?\n\nConferma solo se te l'ha detto lui (o un genitore, se è minorenne).`)) return
+    await once('photo' + b.target_id, async () => {
+      try {
+        const { blob, ext } = await compressPhoto(file)
+        const path = `${team}/${b.target_id}-${Date.now()}.${ext}`
+        const up = await sb.storage.from(PHOTO_BUCKET).upload(path, blob, { contentType: blob.type, upsert: false })
+        if (up.error) throw up.error
+        const { data: old, error } = await sb.rpc('set_blader_photo', { p_team: team, p_blader: b.target_id, p_path: path })
+        if (error) { await sb.storage.from(PHOTO_BUCKET).remove([path]); throw error }
+        if (old) await sb.storage.from(PHOTO_BUCKET).remove([old])
+        await load()
+      } catch (e) {
+        err(/blader_photos|set_blader_photo|Bucket not found/i.test(e?.message || '') ? new Error('Le foto non sono ancora attive: esegui prima lo script foxpoint_07_foto.sql su Supabase') : e)
+      }
+    })
+  }
+  async function removePhoto(b) {
+    if (!confirm(`Togliere la foto di ${nick(b.target_id)}?`)) return
+    await once('photo' + b.target_id, async () => {
+      const { data: old, error } = await sb.rpc('remove_blader_photo', { p_team: team, p_blader: b.target_id })
+      if (error) return err(error)
+      if (old) await sb.storage.from(PHOTO_BUCKET).remove([old])
+      await load()
+    })
   }
   async function saveBounty(id, value, isActive) {
     await once('bounty' + id, async () => {
@@ -273,15 +326,15 @@ function Team({ m, out }) {
         {GROUPS.map(([k, t]) => active.some(b => b.category === k) && (
           <div key={k}>
             <h2>{t}</h2>
-            {active.filter(b => b.category === k).map(b => (
-              <div className="row" key={b.id}>
-                <span><b>{nick(b.target_id)}</b><small>#{d.bl[b.target_id]?.pro_rank ?? '–'} PBI</small></span>
-                <span className="pts">{b.value} pt</span>
-                <button onClick={() => claim(b)}>Ho vinto</button>
-              </div>
-            ))}
+            <div className="wanted-grid">
+              {active.filter(b => b.category === k).map((b, i) => (
+                <Wanted key={b.id} i={i} name={nick(b.target_id)} rank={d.bl[b.target_id]?.pro_rank} value={b.value}
+                  photo={d.photos[b.target_id]} onZoom={setZoom} onClaim={() => claim(b)} />
+              ))}
+            </div>
           </div>
         ))}
+        {zoom && <div className="zoom" onClick={() => setZoom(null)}><img src={zoom.url} alt={zoom.name} /><b>{zoom.name}</b></div>}
         <h2>Ultime riscossioni</h2>
         {!d.claims.length && <p className="mut">Ancora nessuna riscossione.</p>}
         {d.claims.slice(0, 20).map(c => (
@@ -346,6 +399,7 @@ function Team({ m, out }) {
           <BountyRow key={b.id + b.value + b.active} b={b}
             name={`#${d.bl[b.target_id]?.pro_rank ?? '–'} ${nick(b.target_id)}`}
             note={`${GROUPS.find(g => g[0] === b.category)?.[1]}${b.category === 'top10' && (d.bl[b.target_id]?.pro_rank ?? 999) > 10 ? ' · ⚠ fuori top 10' : ''}`}
+            photo={d.photos[b.target_id]} onPhoto={f => uploadPhoto(b, f)} onRemovePhoto={() => removePhoto(b)}
             onSave={saveBounty} />)}
       </>}
     </div>
@@ -385,11 +439,15 @@ function ReqRow({ r, free, act }) {
   )
 }
 
-function BountyRow({ b, name, note, onSave }) {
+function BountyRow({ b, name, note, onSave, photo, onPhoto, onRemovePhoto }) {
   const [v, setV] = useState(b.value), [a, setA] = useState(b.active)
   return (
     <div className="row">
-      <span>{name}<small>{note}</small></span>
+      <label className="thumb" title={photo ? 'Cambia foto' : 'Aggiungi foto'}>
+        {photo ? <img src={photo} alt="" /> : <span>📷</span>}
+        <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onPhoto(f) }} />
+      </label>
+      <span>{name}<small>{note}{photo && <> · <button type="button" className="link mini" onClick={onRemovePhoto}>togli foto</button></>}</small></span>
       <input type="number" min="0" value={v} onChange={e => setV(+e.target.value)} />
       <label className="chk"><input type="checkbox" checked={a} onChange={e => setA(e.target.checked)} /> attiva</label>
       <button onClick={() => onSave(b.id, v, a)}>Salva</button>
@@ -658,6 +716,21 @@ function AddTournament({ team, tiers, reload }) {
       <input placeholder="Città" value={f.city} onChange={set('city')} />
       <input placeholder="Link pagina PBI (facoltativo)" value={f.url} onChange={set('url')} />
       <button disabled={!f.name.trim() || !f.tier || !f.date} onClick={save}>Aggiungi</button>
+    </div>
+  )
+}
+
+function Wanted({ i, name, rank, value, photo, onZoom, onClaim }) {
+  return (
+    <div className="wanted" style={{ animationDelay: `${i * 40}ms` }}>
+      <div className="wanted-head">RICERCATO</div>
+      <button type="button" className="wanted-photo" onClick={() => photo && onZoom({ url: photo, name })} aria-label={photo ? `Foto di ${name}` : name}>
+        {photo ? <img src={photo} alt="" loading="lazy" /> : <span>{ini(name)}</span>}
+        {rank && <em>#{rank} PBI</em>}
+      </button>
+      <b className="wanted-name">{name}</b>
+      <div className="wanted-bounty"><small>TAGLIA</small><strong>{value}</strong><small>PT</small></div>
+      <button onClick={onClaim}>Ho vinto</button>
     </div>
   )
 }

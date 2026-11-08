@@ -94,3 +94,33 @@ a.btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px #7a47c955;filter:br
 }
 .card{margin-top:calc(7vh + env(safe-area-inset-top))}
 body{padding-bottom:0}
+
+/* Bacheca "RICERCATO" */
+.wanted-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.wanted{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 10px 12px;border-radius:14px;text-align:center;
+  background:linear-gradient(180deg,#221836,#150f20);border:1px solid var(--line);box-shadow:inset 0 0 0 3px #0b0810,inset 0 0 0 4px #7a47c955,0 6px 18px #0007;
+  animation:up .45s both;transition:transform .2s,box-shadow .2s}
+.wanted:hover{transform:translateY(-3px) rotate(-.6deg);box-shadow:inset 0 0 0 3px #0b0810,inset 0 0 0 4px var(--btn2),0 12px 26px #7a47c944}
+.wanted-head{font:800 .95rem/1 Impact,"Arial Black",system-ui,sans-serif;letter-spacing:.18em;color:var(--ac);padding-top:2px;text-shadow:0 0 12px #7a47c977}
+.wanted-photo{position:relative;width:100%;aspect-ratio:1;padding:0;border-radius:10px;overflow:hidden;cursor:zoom-in;
+  background:radial-gradient(circle at 50% 35%,#3a2566,#1a1029);border:2px solid #7a47c966;box-shadow:none}
+.wanted-photo:hover:not(:disabled){transform:none;box-shadow:none;filter:none}
+.wanted-photo img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.9) contrast(1.05)}
+.wanted-photo>span{display:grid;place-items:center;height:100%;font:800 2.4rem/1 system-ui;color:#cdb8f2;opacity:.75}
+.wanted-photo em{position:absolute;left:6px;bottom:6px;font:700 .7rem/1 system-ui;font-style:normal;padding:4px 7px;border-radius:999px;background:#0b0810cc;color:var(--tx)}
+.wanted-name{font-size:.98rem;line-height:1.15;overflow-wrap:anywhere;min-height:1.15em}
+.wanted-bounty{display:flex;align-items:baseline;justify-content:center;gap:5px;width:100%;padding:6px 0;border-top:1px dashed #7a47c966;border-bottom:1px dashed #7a47c966}
+.wanted-bounty small{font-size:.66rem;letter-spacing:.12em;color:var(--mut)}
+.wanted-bounty strong{font:800 1.6rem/1 Impact,"Arial Black",system-ui,sans-serif;color:#e3d4ff;letter-spacing:.02em}
+.wanted>button:last-child{width:100%;margin-top:auto}
+.wanted-bounty{margin-bottom:4px}
+.zoom{position:fixed;inset:0;z-index:50;background:#0b0810ee;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;cursor:zoom-out;animation:up .2s both}
+.zoom img{max-width:min(92vw,520px);max-height:75vh;border-radius:16px;border:3px solid var(--btn2);box-shadow:0 0 40px #7a47c966}
+.zoom b{font-size:1.2rem}
+/* miniatura foto nel pannello admin */
+.row>label.thumb{flex:0 0 44px;width:44px;height:44px;border-radius:10px;overflow:hidden;display:grid;place-items:center;cursor:pointer;
+  background:var(--card2);border:1px dashed #7a47c988;transition:border-color .2s}
+.row>label.thumb:hover{border-color:var(--ac)}
+.row>label.thumb img{width:100%;height:100%;object-fit:cover}
+button.link.mini{font-size:.78rem;padding:0;display:inline}
+@media(max-width:420px){.wanted-grid{grid-template-columns:repeat(2,1fr);gap:10px}.wanted-bounty strong{font-size:1.35rem}}
