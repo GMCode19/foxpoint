@@ -46,7 +46,8 @@ test('abbinamento: originale + doppione "Nick Team" -> aggiorna l\'originale, il
   const p = planSync(bl, [{ rank: 2, nick: 'BBP_iamThanos', team: 'Roasted Crab', pbiId: '222', points: 4120 }])
   assert.deepEqual(p.updates, [{ id: 'o', nickname: 'BBP_iamThanos', pro_rank: 2, pro_points: 4120, pbi_id: '222' }])
   assert.deepEqual(p.inserts, []); assert.deepEqual(p.renames, [])
-  assert.deepEqual(p.clears.map(c => c.id), ['c'])
+  assert.deepEqual(p.duplicates, [{ id: 'c', nickname: 'BBP_iamThanos Roasted Crab', keepId: 'o', keep: 'BBP_iamThanos' }])
+  assert.deepEqual(p.clears, [], 'il clone viene eliminato, non solo declassato')
 })
 
 test('abbinamento: solo doppione senza originale -> viene rinominato', () => {
@@ -93,13 +94,22 @@ test('due aggiornamenti di fila: il secondo non crea né rinomina nulla (nessun 
     bl = bl.map(b => { const r = p.renames.find(x => x.id === b.id); return r ? { ...b, nickname: r.nickname } : b })
     bl = bl.map(b => { const u = p.updates.find(x => x.id === b.id); return u ? { ...b, pro_rank: u.pro_rank, pbi_id: u.pbi_id ?? b.pbi_id } : b })
     bl = bl.map(b => p.clears.some(c => c.id === b.id) ? { ...b, pro_rank: null } : b)
+    bl = bl.filter(b => !p.duplicates.some(d => d.id === b.id))
     return [...bl, ...p.inserts.map((i, k) => ({ id: 'new' + k, pbi_nickname: null, ...i }))]
   }
   const p1 = planSync(bl, rows); bl = apply(bl, p1)
   assert.deepEqual(p1.inserts.map(i => i.nickname), ['Ivanbrando'])
   assert.deepEqual(p1.renames.map(r => r.nickname), ['Zeta90'])
   const p2 = planSync(bl, rows); bl = apply(bl, p2)
-  assert.deepEqual(p2.inserts, []); assert.deepEqual(p2.renames, []); assert.deepEqual(p2.clears, [])
+  assert.deepEqual(p1.duplicates.map(d => d.nickname), ['SDM_Brus972 Swamp Dragons'])
+  assert.deepEqual(p2.inserts, []); assert.deepEqual(p2.renames, []); assert.deepEqual(p2.clears, []); assert.deepEqual(p2.duplicates, [])
   assert.equal(new Set(bl.map(b => b.nickname.toLowerCase())).size, bl.length)
   assert.ok(bl.filter(b => b.pro_rank != null).every(b => b.pbi_id), 'tutti i blader in classifica hanno l\'id PBI')
+})
+
+test('il nome di un giocatore vero con spazi non viene scambiato per un clone', () => {
+  // "Ale" e "Ale pugno di fuoco" sono due persone diverse: senza team corrispondente nessuna eliminazione
+  const p = planSync([B('a', 'Ale', { pbi_id: '1' }), B('b', 'Ale pugno di fuoco', { pbi_id: '2' })],
+    [{ rank: 1, nick: 'Ale', team: 'Lake Fox', pbiId: '1', points: 9 }, { rank: 2, nick: 'Ale pugno di fuoco', team: null, pbiId: '2', points: 8 }])
+  assert.deepEqual(p.duplicates, []); assert.equal(p.updates.length, 2)
 })

@@ -40,6 +40,7 @@ const bladers = await q(sb.from('bladers').select('id, nickname, pbi_nickname, p
 const plan = planSync(bladers, rows, { topN: TOP_N })
 console.log(`Da aggiornare: ${plan.updates.length} | nuovi in top ${TOP_N}: ${list(plan.inserts.map(i => i.nickname))}`)
 console.log(`Doppioni rinominati: ${list(plan.renames.map(r => `${r.from} -> ${r.nickname}`))}`)
+console.log(`Cloni "nome + team" da eliminare: ${list(plan.duplicates.map(d => `${d.nickname} (resta ${d.keep})`))}`)
 console.log(`Usciti dalla classifica: ${list(plan.clears.map(c => c.nickname))}`)
 if (plan.skipped.length) console.log(`::warning::Saltati: ${plan.skipped.join('; ')}`)
 if (DRY) { console.log('Modalità prova: nessuna modifica scritta.'); process.exit(0) }
@@ -53,6 +54,21 @@ for (const u of plan.updates) {
 }
 if (plan.inserts.length) await q(sb.from('bladers').insert(plan.inserts.map(i => ({ ...i, pro_synced_at: now }))))
 if (plan.clears.length) await q(sb.from('bladers').update({ pro_rank: null, pro_points: null }).in('id', plan.clears.map(c => c.id)))
+
+// cloni "nome + team": eliminati solo se non hanno nulla di collegato (account, team, vittorie, taglie usate)
+for (const d of plan.duplicates) {
+  const [b] = await q(sb.from('bladers').select('user_id').eq('id', d.id))
+  const members = await q(sb.from('team_members').select('blader_id').eq('blader_id', d.id))
+  const claims = await q(sb.from('claims').select('id').or(`hunter_id.eq.${d.id},target_id.eq.${d.id}`).limit(1))
+  const entries = await q(sb.from('tournament_entries').select('id').eq('blader_id', d.id).limit(1))
+  const ledger = await q(sb.from('points_ledger').select('id').eq('blader_id', d.id).limit(1))
+  const bounties = await q(sb.from('bounties').select('id, value, active').eq('target_id', d.id))
+  const used = b?.user_id || members.length || claims.length || entries.length || ledger.length || bounties.some(x => x.active || x.value > 0)
+  if (used) { console.log(`::warning::Clone "${d.nickname}" non eliminato perché ha dati collegati: va unito a mano a "${d.keep}"`); continue }
+  if (bounties.length) await q(sb.from('bounties').delete().eq('target_id', d.id))
+  await q(sb.from('bladers').delete().eq('id', d.id))
+  console.log(`Clone eliminato: ${d.nickname} (resta ${d.keep})`)
+}
 
 // 4) taglia 'top10' (valore 0, non attiva) per ogni blader in top 10, in ogni team con stagione attiva
 const seasons = await q(sb.from('seasons').select('id, team_id').eq('is_active', true))
