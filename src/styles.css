@@ -84,3 +84,13 @@ a.btn{display:inline-block;font-weight:600;padding:9px 14px;border-radius:10px;c
 a.btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px #7a47c955;filter:brightness(1.12)}
 .notice{margin:0;padding:10px 12px;border-radius:10px;font-size:.92rem;text-align:left;background:#2a1a4a;border:1px solid var(--btn2);color:var(--tx);animation:up .3s both}
 .notice.bad{background:#3a1424;border-color:#c0476b}
+
+/* iPhone: spazio per barra di stato, notch/Dynamic Island e barra Home quando l'app è a schermo intero */
+.wrap{
+  padding-top:calc(16px + env(safe-area-inset-top));
+  padding-left:max(14px, env(safe-area-inset-left));
+  padding-right:max(14px, env(safe-area-inset-right));
+  padding-bottom:calc(40px + env(safe-area-inset-bottom));
+}
+.card{margin-top:calc(7vh + env(safe-area-inset-top))}
+body{padding-bottom:0}
