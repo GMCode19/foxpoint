@@ -49,7 +49,7 @@ if (DRY) { console.log('Modalità prova: nessuna modifica scritta.'); process.ex
 const now = new Date().toISOString()
 for (const r of plan.renames) await q(sb.from('bladers').update({ nickname: r.nickname }).eq('id', r.id))
 for (const u of plan.updates) {
-  const { id, nickname, ...fields } = u
+  const { id, nickname: _nickname, ...fields } = u
   await q(sb.from('bladers').update({ ...fields, pro_synced_at: now }).eq('id', id))
 }
 if (plan.inserts.length) await q(sb.from('bladers').insert(plan.inserts.map(i => ({ ...i, pro_synced_at: now }))))
@@ -63,7 +63,8 @@ for (const d of plan.duplicates) {
   const entries = await q(sb.from('tournament_entries').select('id').eq('blader_id', d.id).limit(1))
   const ledger = await q(sb.from('points_ledger').select('id').eq('blader_id', d.id).limit(1))
   const bounties = await q(sb.from('bounties').select('id, value, active').eq('target_id', d.id))
-  const used = b?.user_id || members.length || claims.length || entries.length || ledger.length || bounties.some(x => x.active || x.value > 0)
+  const photos = (await sb.from('blader_photos').select('blader_id').eq('blader_id', d.id).limit(1)).data || []   // tabella facoltativa
+  const used = b?.user_id || members.length || claims.length || entries.length || ledger.length || photos.length || bounties.some(x => x.active || x.value > 0)
   if (used) { console.log(`::warning::Clone "${d.nickname}" non eliminato perché ha dati collegati: va unito a mano a "${d.keep}"`); continue }
   if (bounties.length) await q(sb.from('bounties').delete().eq('target_id', d.id))
   await q(sb.from('bladers').delete().eq('id', d.id))

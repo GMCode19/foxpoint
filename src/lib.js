@@ -1,0 +1,102 @@
+// Costanti e funzioni comuni a tutta l'app
+import { supabase as sb } from './supabase'
+
+export { sb }
+export const GROUPS = [['top10', 'Top 10 PBI'], ['rilevante', 'Blader rilevanti'], ['capo', 'Capi team e creator']]
+export const MEDAL = ['🥇', '🥈', '🥉']
+export const PODIUM = ['winner', 'final', 'sf']
+export const PHASES = [['winner', 'Vincitore 🏆'], ['final', 'Finale (2°)'], ['sf', 'Semifinale'], ['qf', 'Quarti'],
+  ['r16', 'Ottavi (R16)'], ['r32', 'R32'], ['r64', 'R64'], ['r128', 'R128'], ['groups', 'Eliminato ai gironi']]
+export const BADGES = [
+  { k: 'a', i: '🎯', n: 'Prima taglia', d: 'Riscuoti la prima taglia', ok: w => w.length >= 1 },
+  { k: 'b', i: '🔥', n: 'Cacciatore', d: '5 taglie riscosse', ok: w => w.length >= 5 },
+  { k: 'c', i: '👑', n: 'Cacciatore di Top 10', d: 'Batti un blader della top 10', ok: (w, c) => w.some(x => c(x) === 'top10') },
+  { k: 'd', i: '🦊', n: 'Colpo grosso', d: 'Batti un capo team', ok: (w, c) => w.some(x => c(x) === 'capo') },
+  { k: 'e', i: '🎟️', n: 'Prima ranked', d: 'Gioca la prima ranked', ok: (w, c, r) => r.length >= 1 },
+  { k: 'f', i: '🏅', n: 'Sul podio', d: 'Arriva almeno in semifinale in una ranked', ok: (w, c, r) => r.some(x => PODIUM.includes(x.phase)) },
+  { k: 'g', i: '🏆', n: 'Campione', d: 'Vinci una ranked', ok: (w, c, r) => r.some(x => x.phase === 'winner') },
+]
+export const LOGO = import.meta.env.BASE_URL + 'logo.png'
+export const APP_URL = window.location.origin + import.meta.env.BASE_URL
+export const SYNC_URL = 'https://github.com/GMCode19/foxpoint/actions/workflows/sync-pbi.yml'
+export const PHOTO_BUCKET = 'foto-bersagli'
+
+export const ini = n => (n || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '🦊'
+export const phaseName = k => PHASES.find(p => p[0] === k)?.[1] || k
+export const fmtDate = t => new Date(t).toLocaleString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+export const todayLocal = () => new Date().toLocaleDateString('sv-SE')
+// campi di testo senza maiuscola automatica e correttore (codici, nickname)
+export const plain = { autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false }
+
+// posizione in classifica con i pari merito (100, 80, 80, 50 -> 1, 2, 2, 4)
+export const positions = board => board.map(r => 1 + board.filter(x => x.fox_points > r.fox_points).length)
+
+const FRIENDLY = [
+  [/one_pending_claim/, "C'è già una dichiarazione in attesa per questa taglia"],
+  [/row-level security|permission denied/i, 'Non hai i permessi per questa azione'],
+  [/violates foreign key/i, 'Non si può eliminare: ci sono dati collegati'],
+  [/teams_participation_points_check/, 'I punti partecipazione devono essere tra 0 e 1000'],
+  [/bounties_value_check/, 'Il valore della taglia non può essere negativo'],
+  [/claims_check/, 'Non puoi riscuotere una taglia su te stesso'],
+  [/duplicate key/i, 'Questo elemento esiste già'],
+  [/Failed to fetch|NetworkError|Load failed/i, 'Connessione assente o instabile: riprova tra poco'],
+]
+export const err = e => {
+  const m = e?.message || String(e)
+  alert(FRIENDLY.find(([re]) => re.test(m))?.[1] || m)
+}
+
+// Supabase restituisce al massimo 1000 righe per richiesta: scarico a pagine
+export async function fetchAll(build) {
+  const out = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build().range(from, from + 999)
+    if (error) throw error
+    out.push(...data)
+    if (data.length < 1000) return out
+  }
+}
+
+// impedisce che un doppio clic invii due volte la stessa azione
+const inflight = new Set()
+export async function once(key, fn) {
+  if (inflight.has(key)) return
+  inflight.add(key)
+  try { return await fn() } finally { inflight.delete(key) }
+}
+
+// riduce e comprime la foto nel browser prima del caricamento (quadrata 480px, ~30-60 KB)
+export async function compressPhoto(file) {
+  if (!file.type.startsWith('image/')) throw new Error('Il file scelto non è un\'immagine')
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise((ok, ko) => {
+      const i = new Image()
+      i.onload = () => ok(i)
+      i.onerror = () => ko(new Error('Formato immagine non supportato: prova con una foto JPG o PNG'))
+      i.src = url
+    })
+    const S = 480, side = Math.min(img.naturalWidth, img.naturalHeight)
+    const c = document.createElement('canvas'); c.width = c.height = S
+    // ritaglio quadrato leggermente spostato verso l'alto, dove di solito c'è il viso
+    c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2.6, side, side, 0, 0, S, S)
+    const toBlob = type => new Promise(r => c.toBlob(r, type, 0.82))
+    let blob = await toBlob('image/webp')
+    if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/jpeg')   // Safari meno recenti
+    return { blob, ext: blob.type === 'image/webp' ? 'webp' : 'jpg' }
+  } finally { URL.revokeObjectURL(url) }
+}
+
+// Indirizzi temporanei delle foto: riusati finché validi, così il browser non riscarica le immagini a ogni azione
+const PHOTO_TTL = 12 * 3600, signedCache = new Map()   // path -> { url, exp }
+export async function loadPhotos(team) {
+  const { data, error } = await sb.from('blader_photos').select('blader_id, path').eq('team_id', team)
+  if (error || !data?.length) return {}
+  const now = Date.now()
+  const missing = data.map(p => p.path).filter(p => !(signedCache.get(p)?.exp > now + 600e3))
+  if (missing.length) {
+    const { data: signed } = await sb.storage.from(PHOTO_BUCKET).createSignedUrls(missing, PHOTO_TTL)
+    signed?.forEach((s, i) => { if (s?.signedUrl) signedCache.set(missing[i], { url: s.signedUrl, exp: now + PHOTO_TTL * 1000 }) })
+  }
+  return Object.fromEntries(data.filter(p => signedCache.has(p.path)).map(p => [p.blader_id, signedCache.get(p.path).url]))
+}
