@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { sb, LOGO, PHOTO_BUCKET, MEDAL, err, fetchAll, once, compressPhoto, loadPhotos, ini, positions } from './lib'
+import { sb, LOGO, PHOTO_BUCKET, MEDAL, err, fetchAll, once, loadPhotos, ini, positions } from './lib'
 import { Auth, NewPassword, Join } from './Auth'
 import { Profile } from './Profile'
 import { Ranked } from './Ranked'
 import { AdminPanel } from './Admin'
 import { BountyBoard } from './Bounties'
+import { CropModal } from './Crop'
 
 export default function App() {
   const [session, setSession] = useState(undefined), [recovery, setRecovery] = useState(false)
@@ -45,6 +46,7 @@ function Team({ m, out }) {
   const [tab, setTab] = useState('rank'), [pid, setPid] = useState(me)
   const [d, setD] = useState(EMPTY), [ready, setReady] = useState(false)
   const [part, setPart] = useState(m.teams.participation_points)
+  const [crop, setCrop] = useState(null)   // { b, file }: inquadratura della foto in corso
   const seq = useRef(0)   // solo l'ultimo caricamento avviato aggiorna lo schermo
 
   const load = useCallback(async () => {
@@ -107,18 +109,17 @@ function Team({ m, out }) {
       error ? err(error) : await load()
     })
   }
-  async function uploadPhoto(b, file) {
-    const name = nick(b.target_id)
-    if (!confirm(`${name} ti ha dato il consenso a mettere la sua foto nell'app del team?\n\nConferma solo se te l'ha detto lui (o un genitore, se è minorenne).`)) return
+  // dopo l'inquadratura (CropModal): carica il file, lo registra e cancella quello vecchio
+  async function uploadPhoto(b, { blob, ext }) {
     await once('photo' + b.target_id, async () => {
       try {
-        const { blob, ext } = await compressPhoto(file)
         const path = `${team}/${b.target_id}-${Date.now()}.${ext}`
         const up = await sb.storage.from(PHOTO_BUCKET).upload(path, blob, { contentType: blob.type, upsert: false })
         if (up.error) throw up.error
         const { data: old, error } = await sb.rpc('set_blader_photo', { p_team: team, p_blader: b.target_id, p_path: path })
         if (error) { await sb.storage.from(PHOTO_BUCKET).remove([path]); throw error }
         if (old) await sb.storage.from(PHOTO_BUCKET).remove([old])
+        setCrop(null)
         await load()
       } catch (e) {
         err(/blader_photos|set_blader_photo|Bucket not found/i.test(e?.message || '') ? new Error('Le foto non sono ancora attive: esegui prima lo script foxpoint_07_foto.sql su Supabase') : e)
@@ -165,7 +166,9 @@ function Team({ m, out }) {
       {tab === 'profile' && <Profile id={pid} d={d} nick={nick} />}
 
       {tab === 'admin' && <AdminPanel d={d} team={team} nick={nick} act={act} part={part} onPart={setPart} active={active} free={free}
-        revoke={revoke} saveBounty={saveBounty} uploadPhoto={uploadPhoto} removePhoto={removePhoto} />}
+        revoke={revoke} saveBounty={saveBounty} uploadPhoto={(b, file) => setCrop({ b, file })} removePhoto={removePhoto} />}
+
+      {crop && <CropModal file={crop.file} name={nick(crop.b.target_id)} onCancel={() => setCrop(null)} onSave={img => uploadPhoto(crop.b, img)} />}
     </div>
   )
 }

@@ -65,28 +65,6 @@ export async function once(key, fn) {
   try { return await fn() } finally { inflight.delete(key) }
 }
 
-// riduce e comprime la foto nel browser prima del caricamento (quadrata 480px, ~30-60 KB)
-export async function compressPhoto(file) {
-  if (!file.type.startsWith('image/')) throw new Error('Il file scelto non è un\'immagine')
-  const url = URL.createObjectURL(file)
-  try {
-    const img = await new Promise((ok, ko) => {
-      const i = new Image()
-      i.onload = () => ok(i)
-      i.onerror = () => ko(new Error('Formato immagine non supportato: prova con una foto JPG o PNG'))
-      i.src = url
-    })
-    const S = 480, side = Math.min(img.naturalWidth, img.naturalHeight)
-    const c = document.createElement('canvas'); c.width = c.height = S
-    // ritaglio quadrato leggermente spostato verso l'alto, dove di solito c'è il viso
-    c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2.6, side, side, 0, 0, S, S)
-    const toBlob = type => new Promise(r => c.toBlob(r, type, 0.82))
-    let blob = await toBlob('image/webp')
-    if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/jpeg')   // Safari meno recenti
-    return { blob, ext: blob.type === 'image/webp' ? 'webp' : 'jpg' }
-  } finally { URL.revokeObjectURL(url) }
-}
-
 // Indirizzi temporanei delle foto: riusati finché validi, così il browser non riscarica le immagini a ogni azione
 const PHOTO_TTL = 12 * 3600, signedCache = new Map()   // path -> { url, exp }
 export async function loadPhotos(team) {

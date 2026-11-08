@@ -124,3 +124,23 @@ body{padding-bottom:0}
 .row>label.thumb img{width:100%;height:100%;object-fit:cover}
 button.link.mini{font-size:.78rem;padding:0;display:inline}
 @media(max-width:420px){.ricercato-grid{grid-template-columns:repeat(2,1fr);gap:10px}.ricercato-bounty strong{font-size:1.35rem}}
+
+/* Inquadratura foto (prima del caricamento) */
+.crop-modal{position:fixed;inset:0;z-index:60;background:#0b0810f2;display:flex;align-items:center;justify-content:center;
+  padding:calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));overflow-y:auto;animation:up .2s both}
+.crop-card{width:min(100%,420px);display:flex;flex-direction:column;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 20px 60px #000a}
+.crop-card h2{margin:0}
+.crop-box{position:relative;width:100%;aspect-ratio:1;overflow:hidden;border-radius:12px;background:#000;cursor:grab;
+  touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;border:2px solid var(--btn2)}
+.crop-box:active{cursor:grabbing}
+.crop-box img{position:absolute;left:0;top:0;max-width:none;pointer-events:none;will-change:transform}
+.crop-grid{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(#fff3,#fff3) 33.33% 0/1px 100% no-repeat,linear-gradient(#fff3,#fff3) 66.66% 0/1px 100% no-repeat,
+             linear-gradient(#fff3,#fff3) 0 33.33%/100% 1px no-repeat,linear-gradient(#fff3,#fff3) 0 66.66%/100% 1px no-repeat}
+.crop-zoom{display:flex;align-items:center;gap:10px}
+.crop-zoom input{flex:1;accent-color:var(--btn2);padding:0;height:28px;background:none;border:0}
+.crop-consent{align-items:flex-start;white-space:normal;line-height:1.35;color:var(--tx)}
+.crop-consent input{margin-top:2px;width:20px;height:20px;flex:0 0 20px}
+.crop-actions{display:flex;gap:10px}.crop-actions button{flex:1;padding:12px}
+/* foto sui manifesti: sempre quadrate e nitide, senza deformazioni */
+.ricercato-photo img{object-position:center;image-rendering:auto}
