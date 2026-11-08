@@ -39,11 +39,21 @@ function Home({ user }) {
 
 const EMPTY = { board: [], bounties: [], claims: [], reqs: [], bl: {}, led: [], tours: [], entries: [], tiers: {}, tp: {},
   tourById: {}, entryById: {}, claimById: {}, bountyById: {}, photos: {} }
+const HASH = { rank: 'classifica', bounty: 'taglie', ranked: 'ranked', profile: 'profilo', admin: 'admin' }
 let staticData = null   // tabella punti PBI: non cambia, la leggo una volta sola
 
 function Team({ m, out }) {
   const team = m.team_id, me = m.bladers.id, admin = m.role === 'admin'
-  const [tab, setTab] = useState('rank'), [pid, setPid] = useState(me)
+  // la scheda aperta resta nell'indirizzo (#taglie, #ranked…): ricaricando la pagina si torna lì
+  const [tab, setTab] = useState(() => {
+    const k = Object.keys(HASH).find(k => HASH[k] === decodeURIComponent(location.hash.slice(1)))
+    return k && (k !== 'admin' || admin) ? k : 'rank'
+  })
+  useEffect(() => {
+    const h = tab === 'rank' ? '' : '#' + HASH[tab]
+    if (location.hash !== h) history.replaceState(history.state, '', location.pathname + location.search + h)
+  }, [tab])
+  const [pid, setPid] = useState(me)
   const [d, setD] = useState(EMPTY), [ready, setReady] = useState(false)
   const [part, setPart] = useState(m.teams.participation_points)
   const [crop, setCrop] = useState(null)   // { b, file }: inquadratura della foto in corso
