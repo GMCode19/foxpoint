@@ -98,7 +98,7 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part }) {
       <h2>Impostazioni</h2>
       <div className="menu">
         {admin && <button type="button" onClick={() => goTab('admin')}><Icon.shield /><span>Pannello admin</span>{todo > 0 && <em className="dot">{todo}</em>}<Icon.chevron /></button>}
-        <Notifications me={me} />
+        <Notifications me={me} admin={admin} />
         <button type="button" onClick={() => setHelp(true)}><Icon.help /><span>Come funzionano i punti</span><Icon.chevron /></button>
         <button type="button" onClick={logout}><Icon.logout /><span>Esci</span></button>
       </div>

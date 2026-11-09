@@ -77,6 +77,15 @@ function Team({ m }) {
     const h = tab === 'rank' ? '' : '#' + HASH[tab]
     if (location.hash !== h) history.replaceState(history.state, '', location.pathname + location.search + h)
   }, [tab])
+  // tocco su una notifica con l'app già aperta: si va alla sezione indicata
+  useEffect(() => {
+    const go = () => {
+      const k = Object.keys(HASH).find(k => HASH[k] === decodeURIComponent(location.hash.slice(1)))
+      if (k && (k !== 'admin' || admin)) { if (k === 'profile') setPid(me); setTabRaw(k); window.scrollTo({ top: 0 }) }
+    }
+    window.addEventListener('hashchange', go)
+    return () => window.removeEventListener('hashchange', go)
+  }, [admin, me])
   const [pid, setPid] = useState(me)
   const cached = useRef(readCache(cacheKey))
   const [d, setD] = useState(() => cached.current ? build(cached.current.raw) : null)
