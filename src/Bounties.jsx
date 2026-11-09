@@ -41,9 +41,9 @@ function Ricercato({ i, name, rank, value, photo, self, onZoom, onClaim }) {
       <div className="ricercato-head">RICERCATO</div>
       <button type="button" className="ricercato-photo" onClick={() => photo && onZoom({ url: photo, name })} aria-label={photo ? `Foto di ${name}` : name}>
         {photo ? <img src={photo} alt="" loading="lazy" /> : <span>{ini(name)}</span>}
-        {rank && <em>#{rank} PBI</em>}
       </button>
       <b className="ricercato-name">{name}</b>
+      {rank && <em className="ricercato-rank">#{rank} PBI</em>}
       <div className="ricercato-bounty"><small>TAGLIA</small><strong>{value}</strong><small>PT</small></div>
       {self ? <button disabled>Sei tu!</button> : <button onClick={onClaim}>Ho vinto</button>}
     </div>

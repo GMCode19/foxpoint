@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 
 // Riquadro per scegliere l'inquadratura della foto prima del caricamento.
 // Telefono: trascina con un dito, allarga/stringi con due dita. Computer: trascina con il mouse, rotellina per lo zoom.
-// Quello che si vede nel riquadro è esattamente quello che comparirà sul manifesto.
+// Quello che si vede nel riquadro è esattamente quello che comparirà sul manifesto (formato verticale 2:3).
 // Si può rimpicciolire fino a vedere la foto intera (es. un manifesto verticale): lo spazio libero
 // viene riempito con la foto stessa sfocata e scurita, uguale nell'anteprima e nella foto salvata.
-const OUT = 640, MAX_ZOOM = 4
+export const RATIO = 1.5                  // altezza / larghezza del manifesto: 2:3
+const OUT_W = 640, OUT_H = OUT_W * RATIO, MAX_ZOOM = 4
 
 export function CropModal({ file, name, onCancel, onSave }) {
   const box = useRef(null), imgRef = useRef(null), pointers = useRef(new Map()), pinch = useRef(null)
@@ -30,27 +31,28 @@ export function CropModal({ file, name, onCancel, onSave }) {
     return () => window.removeEventListener('resize', measure)
   }, [])
 
-  // geometria: la foto copre sempre tutto il riquadro, senza bordi vuoti
-  const base = nat ? V / Math.min(nat.w, nat.h) : 1                  // zoom 1 = la foto riempie il riquadro
-  const minZ = nat ? Math.min(nat.w, nat.h) / Math.max(nat.w, nat.h) : 1   // zoom minimo = foto intera
-  const w = nat ? nat.w * base * z : V, h = nat ? nat.h * base * z : V
+  // geometria: riquadro largo V e alto H (2:3)
+  const H = V * RATIO
+  const base = nat ? Math.max(V / nat.w, H / nat.h) : 1                    // zoom 1 = la foto riempie il riquadro
+  const minZ = nat ? Math.min(V / nat.w, H / nat.h) / base : 1             // zoom minimo = foto intera
+  const w = nat ? nat.w * base * z : V, h = nat ? nat.h * base * z : H
   // la foto non può uscire dal riquadro; se è più piccola del riquadro su un lato resta centrata su quel lato
   const clamp = v => {
-    const mx = Math.max(0, ((nat ? nat.w * base * v.z : V) - V) / 2), my = Math.max(0, ((nat ? nat.h * base * v.z : V) - V) / 2)
+    const mx = Math.max(0, ((nat ? nat.w * base * v.z : V) - V) / 2), my = Math.max(0, ((nat ? nat.h * base * v.z : H) - H) / 2)
     return { z: v.z, x: Math.max(-mx, Math.min(mx, v.x)), y: Math.max(-my, Math.min(my, v.y)) }
   }
-  const left = (V - w) / 2 + view.x, top = (V - h) / 2 + view.y
+  const left = (V - w) / 2 + view.x, top = (H - h) / 2 + view.y
 
   function onLoad(e) {
     const i = e.currentTarget, n = { w: i.naturalWidth, h: i.naturalHeight }
     setNat(n)
-    // partenza: foto centrata; se è verticale, spostata verso l'alto dove di solito c'è il viso
-    const b = V / Math.min(n.w, n.h), my = (n.h * b - V) / 2
+    // partenza: foto centrata; se è più allungata del riquadro, spostata verso l'alto dove di solito c'è il viso
+    const b = Math.max(V / n.w, H / n.h), my = (n.h * b - H) / 2
     setView({ z: 1, x: 0, y: my * 0.45 })
   }
   // zoom attorno al punto indicato (centro, dita o puntatore del mouse); target = valore o funzione dello zoom attuale
-  function zoomTo(target, focus = { x: V / 2, y: V / 2 }) {
-    const cx = focus.x - V / 2, cy = focus.y - V / 2
+  function zoomTo(target, focus = { x: V / 2, y: H / 2 }) {
+    const cx = focus.x - V / 2, cy = focus.y - H / 2
     setView(v => {
       const nz = Math.max(minZ, Math.min(MAX_ZOOM, typeof target === 'function' ? target(v.z) : target)), k = nz / v.z
       return clamp({ z: nz, x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k })
@@ -88,16 +90,16 @@ export function CropModal({ file, name, onCancel, onSave }) {
   async function save() {
     setBusy(true); setError('')
     try {
-      const img = imgRef.current, sc = OUT / V
-      const c = document.createElement('canvas'); c.width = c.height = OUT
+      const img = imgRef.current, sc = OUT_W / V
+      const c = document.createElement('canvas'); c.width = OUT_W; c.height = OUT_H
       const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'
-      if (w < V - 0.5 || h < V - 0.5) {
-        // sfondo: la foto ridotta a 24px e riallargata (sfocatura che funziona su tutti i browser, Safari compreso)
-        const t = document.createElement('canvas'); t.width = t.height = 24
-        const side = Math.min(nat.w, nat.h)
-        t.getContext('2d').drawImage(img, (nat.w - side) / 2, (nat.h - side) / 2, side, side, 0, 0, 24, 24)
-        g.drawImage(t, -OUT * 0.08, -OUT * 0.08, OUT * 1.16, OUT * 1.16)
-        g.fillStyle = 'rgba(11, 8, 16, 0.45)'; g.fillRect(0, 0, OUT, OUT)
+      if (w < V - 0.5 || h < H - 0.5) {
+        // sfondo: la foto ridotta a 24x36 px e riallargata (sfocatura che funziona su tutti i browser, Safari compreso)
+        const t = document.createElement('canvas'); t.width = 24; t.height = 24 * RATIO
+        const sw = Math.min(nat.w, nat.h / RATIO), sh = sw * RATIO   // ritaglio centrale in 2:3
+        t.getContext('2d').drawImage(img, (nat.w - sw) / 2, (nat.h - sh) / 2, sw, sh, 0, 0, t.width, t.height)
+        g.drawImage(t, -OUT_W * 0.08, -OUT_H * 0.08, OUT_W * 1.16, OUT_H * 1.16)
+        g.fillStyle = 'rgba(11, 8, 16, 0.45)'; g.fillRect(0, 0, OUT_W, OUT_H)
       }
       g.drawImage(img, left * sc, top * sc, w * sc, h * sc)
       const toBlob = type => new Promise(r => c.toBlob(r, type, 0.85))
@@ -111,7 +113,7 @@ export function CropModal({ file, name, onCancel, onSave }) {
     <div className="crop-modal" role="dialog" aria-modal="true" aria-label={`Foto di ${name}`}>
       <div className="crop-card">
         <h2>Foto di {name}</h2>
-        <p className="mut note">Trascina per spostare, allarga con due dita (o usa la rotellina) per ingrandire.</p>
+        <p className="mut note">Trascina per spostare, due dita per lo zoom.</p>
         <div className="crop-box" ref={box} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
           {src && nat && z < 1 && <img className="crop-bg" src={src} alt="" draggable={false} />}
           {src && <img ref={imgRef} src={src} alt="" draggable={false} onLoad={onLoad}
