@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import { parseRanking, validateRanking } from './pbi-parse.js'
 import { planSync } from './pbi-plan.js'
 import { parseCalendar, parseEvent, planEvents } from './pbi-events.js'
+import { planBounties } from './pbi-bounties.js'
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://udjviairelbvohdfwhhb.supabase.co'
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -117,7 +118,27 @@ const top = await q(sb.from('bladers').select('id').lte('pro_rank', TOP_N))
 const newB = seasons.flatMap(s => top.map(t => ({ team_id: s.team_id, season_id: s.id, target_id: t.id, value: 0, active: false, category: 'top10' })))
 if (newB.length) await q(sb.from('bounties').upsert(newB, { onConflict: 'season_id,target_id', ignoreDuplicates: true }))
 
-// 5) taglie 'top10' attive su chi è uscito dalla top 10: le segnaliamo, decide l'admin
+// 5) le taglie Top 10 slittano con la classifica: valore per posizione (impostato dall'admin), attivazione automatica
+try {
+  const slotRows = (await sb.from('bounty_rank_values').select('team_id, rank, value'))
+  if (slotRows.error) throw new Error('esegui prima lo script foxpoint_08_taglie_posizione.sql (' + slotRows.error.message + ')')
+  const slots = new Map()
+  for (const r of slotRows.data) { if (!slots.has(r.team_id)) slots.set(r.team_id, new Map()); slots.get(r.team_id).set(r.rank, r.value) }
+  const oldRank = new Map(bladers.map(b => [b.id, b.pro_rank]))
+  const newRank = new Map((await q(sb.from('bladers').select('id, pro_rank').not('pro_rank', 'is', null))).map(b => [b.id, b.pro_rank]))
+  const current = seasons.length ? await q(sb.from('bounties').select('id, team_id, target_id, category, value, active, prev_category, prev_value').in('season_id', seasons.map(s => s.id))) : []
+  const ups = planBounties(current, oldRank, newRank, slots)
+  const nick = new Map((await q(sb.from('bladers').select('id, nickname').in('id', [...new Set(ups.map(u => u.target_id))].concat(['00000000-0000-0000-0000-000000000000'])))).map(b => [b.id, b.nickname]))
+  for (const { id, target_id, ...f } of ups) {
+    await q(sb.from('bounties').update(f).eq('id', id))
+    console.log(`Taglia ${nick.get(target_id) ?? target_id}: ${JSON.stringify(f)}`)
+  }
+  console.log(`Taglie Top 10 aggiornate in base alla posizione: ${ups.length}`)
+} catch (e) {
+  console.log(`::warning::Slittamento taglie Top 10 non eseguito: ${e.message}`)
+}
+
+// 6) taglie 'top10' attive su chi è uscito dalla top 10: le segnaliamo, decide l'admin
 const act = await q(sb.from('bounties').select('category, bladers(nickname, pro_rank)').eq('active', true))
 const usciti = [...new Set(act.filter(a => a.category === 'top10' && (!a.bladers.pro_rank || a.bladers.pro_rank > TOP_N)).map(a => a.bladers.nickname))]
 console.log(`Taglie top 10 attive su chi è fuori dalla top 10: ${list(usciti)}`)

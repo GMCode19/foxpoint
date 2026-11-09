@@ -148,3 +148,7 @@ button.link.mini{font-size:.78rem;padding:0;display:inline}
 .crop-box img.crop-bg{position:absolute;inset:-8%;width:116%;height:116%;object-fit:cover;filter:blur(18px) brightness(.55);transform:none}
 .crop-fit{display:flex;gap:8px}.crop-fit button{flex:1;padding:9px 6px}
 .crop-fit button.on{background:linear-gradient(135deg,var(--btn),var(--btn2));border-color:transparent;color:#fff}
+
+/* prossime ranked raggruppate per giorno */
+h3.day{margin:14px 0 6px;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+h2+h3.day{margin-top:4px}

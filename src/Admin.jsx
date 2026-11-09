@@ -57,6 +57,7 @@ export function AdminPanel({ d, team, nick, act, part, onPart, active, free, rev
     ))}
 
     <h2>Taglie (valori e attivazione)</h2>
+    <p className="mut note">Top 10: il valore è legato alla <b>posizione</b>. Se cambi quello del 2°, cambi il valore del 2° posto: quando la classifica PBI cambia, ogni mattina le taglie slittano da sole (chi entra in top 10 si attiva, chi esce si disattiva).</p>
     {[...d.bounties].sort((a, b) => gi(a.category) - gi(b.category) || byRank(a, b)).map(b =>
       <BountyRow key={b.id + b.value + b.active} b={b}
         name={`#${d.bl[b.target_id]?.pro_rank ?? '–'} ${nick(b.target_id)}`}
