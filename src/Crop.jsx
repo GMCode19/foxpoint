@@ -102,9 +102,15 @@ export function CropModal({ file, name, onCancel, onSave }) {
         g.fillStyle = 'rgba(11, 8, 16, 0.45)'; g.fillRect(0, 0, OUT_W, OUT_H)
       }
       g.drawImage(img, left * sc, top * sc, w * sc, h * sc)
-      const toBlob = type => new Promise(r => c.toBlob(r, type, 0.85))
-      let blob = await toBlob('image/webp')
-      if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/jpeg')   // Safari meno recenti
+      const toBlob = (type, q) => new Promise(r => c.toBlob(r, type, q))
+      let blob = await toBlob('image/webp', 0.85)
+      const type = blob?.type === 'image/webp' ? 'image/webp' : 'image/jpeg'   // Safari meno recenti: JPEG
+      // sotto i 480 KB (limite dello spazio foto 512 KB): se serve si abbassa un po' la qualità
+      for (const q of type === 'image/webp' ? [0.72, 0.6, 0.48] : [0.85, 0.72, 0.6, 0.48]) {
+        if (blob && blob.type === type && blob.size <= 480 * 1024) break
+        blob = await toBlob(type, q)
+      }
+      if (!blob) throw new Error('Impossibile preparare la foto: riprova con un\'altra immagine')
       await onSave({ blob, ext: blob.type === 'image/webp' ? 'webp' : 'jpg' })
     } catch (e) { setError(e?.message || String(e)); setBusy(false) }
   }

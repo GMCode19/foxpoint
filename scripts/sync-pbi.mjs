@@ -12,7 +12,8 @@ const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const DRY = process.env.SOLO_PROVA === 'true'
 const PBI_URL = 'https://www.probladers.it/ranking'
 const CAL_URL = 'https://www.probladers.it/calendario-eventi'
-const UA = { headers: { 'user-agent': 'FoxPoint/1.0 (uso interno Lake Fox)' } }
+// ogni richiesta al sito PBI si arrende dopo 30 secondi (un sito bloccato non deve tenere ferma l'automazione)
+const get = url => fetch(url, { headers: { 'user-agent': 'FoxPoint/1.0 (uso interno Lake Fox)' }, signal: AbortSignal.timeout(30000) })
 const TOP_N = 10
 const q = async p => { const { data, error } = await p; if (error) throw new Error(error.message); return data }
 const list = a => a.length ? a.join(', ') : 'nessuno'
@@ -21,12 +22,12 @@ const sb = KEY ? createClient(SUPABASE_URL, KEY, { auth: { persistSession: false
 
 // 0) prossime ranked dal calendario PBI: indipendente dalla classifica, un suo errore non blocca il resto
 try {
-  const cal = await fetch(CAL_URL, UA)
+  const cal = await get(CAL_URL)
   if (!cal.ok) throw new Error(`il calendario PBI ha risposto ${cal.status}`)
   const candidates = parseCalendar(await cal.text())
   const found = []
   for (const c of candidates) {
-    const r = await fetch(c.url, UA)
+    const r = await get(c.url)
     if (!r.ok) { console.log(`::warning::${c.name}: pagina non leggibile (${r.status})`); continue }
     const t = parseEvent(await r.text(), c.url)
     if (t.skip) console.log(`Calendario: salto "${c.name}" (${t.skip})`)
@@ -39,6 +40,11 @@ try {
     const plan = planEvents(existing, found)
     console.log(`Ranked nuove: ${list(plan.inserts.map(t => t.name))} | da correggere: ${list(plan.updates.map(t => t.name))}`)
     plan.skipped.forEach(m => console.log('Calendario: ' + m))
+    // possibili doppioni: ranked future inserite a mano (senza link o con un altro link) stesso tier e stesso giorno
+    const upcoming = await q(sb.from('tournaments').select('name, tier, starts_at, url').gte('starts_at', new Date().toISOString()))
+    for (const f of found) for (const t of upcoming)
+      if (t.url !== f.url && t.tier === f.tier && Math.abs(new Date(t.starts_at) - new Date(f.starts_at)) < 12 * 3600e3)
+        console.log(`::warning::Possibile doppione: "${t.name}" (aggiunto a mano) e "${f.name}" (dal calendario PBI)`)
     if (!DRY) {
       if (plan.inserts.length) await q(sb.from('tournaments').upsert(plan.inserts, { onConflict: 'url', ignoreDuplicates: true }))
       for (const { id, ...f } of plan.updates) await q(sb.from('tournaments').update(f).eq('id', id).is('created_by_team', null))
@@ -50,7 +56,7 @@ try {
 }
 
 // 1) lettura e controllo della classifica
-const res = await fetch(PBI_URL, UA)
+const res = await get(PBI_URL)
 if (!res.ok) throw new Error(`Il sito PBI ha risposto ${res.status}`)
 const html = await res.text()
 const rows = parseRanking(html)
