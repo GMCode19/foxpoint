@@ -1,5 +1,6 @@
 // Costanti e funzioni comuni a tutta l'app
 import { supabase as sb } from './supabase'
+import { toast } from './ui'
 
 export { sb }
 export const GROUPS = [['top10', 'Top 10 PBI'], ['rilevante', 'Blader rilevanti'], ['capo', 'Capi team e creator']]
@@ -43,7 +44,7 @@ const FRIENDLY = [
 ]
 export const err = e => {
   const m = e?.message || String(e)
-  alert(FRIENDLY.find(([re]) => re.test(m))?.[1] || m)
+  toast(FRIENDLY.find(([re]) => re.test(m))?.[1] || m, { kind: 'bad', ms: 5000 })
 }
 
 // Supabase restituisce al massimo 1000 righe per richiesta: scarico a pagine

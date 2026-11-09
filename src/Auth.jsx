@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { sb, LOGO, APP_URL, err, plain } from './lib'
+import { toast } from './ui'
 
 export function NewPassword({ done }) {
   const [pw, setPw] = useState(''), [msg, setMsg] = useState('')
@@ -7,7 +8,7 @@ export function NewPassword({ done }) {
     e.preventDefault()
     const { error } = await sb.auth.updateUser({ password: pw })
     if (error) return setMsg(error.message)
-    alert('Password aggiornata.'); done()
+    toast('Password aggiornata', { kind: 'ok' }); done()
   }
   return (
     <form className="card c" onSubmit={save}>
