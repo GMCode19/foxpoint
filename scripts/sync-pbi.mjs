@@ -1,20 +1,56 @@
-// Aggiorna posizioni e punti PBI dei blader e crea le taglie per i nuovi entrati in top 10.
+// Aggiorna posizioni e punti PBI dei blader, crea le taglie per i nuovi entrati in top 10
+// e importa le prossime ranked dal calendario PBI (così i membri possono segnare "Partecipo").
 // Eseguito da GitHub Actions (.github/workflows/sync-pbi.yml) ogni mattina o a mano.
 // Richiede il secret SUPABASE_SERVICE_ROLE_KEY. Con SOLO_PROVA=true legge e mostra senza scrivere nulla.
 import { createClient } from '@supabase/supabase-js'
 import { parseRanking, validateRanking } from './pbi-parse.js'
 import { planSync } from './pbi-plan.js'
+import { parseCalendar, parseEvent, planEvents } from './pbi-events.js'
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://udjviairelbvohdfwhhb.supabase.co'
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const DRY = process.env.SOLO_PROVA === 'true'
 const PBI_URL = 'https://www.probladers.it/ranking'
+const CAL_URL = 'https://www.probladers.it/calendario-eventi'
+const UA = { headers: { 'user-agent': 'FoxPoint/1.0 (uso interno Lake Fox)' } }
 const TOP_N = 10
 const q = async p => { const { data, error } = await p; if (error) throw new Error(error.message); return data }
 const list = a => a.length ? a.join(', ') : 'nessuno'
 
+const sb = KEY ? createClient(SUPABASE_URL, KEY, { auth: { persistSession: false } }) : null
+
+// 0) prossime ranked dal calendario PBI: indipendente dalla classifica, un suo errore non blocca il resto
+try {
+  const cal = await fetch(CAL_URL, UA)
+  if (!cal.ok) throw new Error(`il calendario PBI ha risposto ${cal.status}`)
+  const candidates = parseCalendar(await cal.text())
+  const found = []
+  for (const c of candidates) {
+    const r = await fetch(c.url, UA)
+    if (!r.ok) { console.log(`::warning::${c.name}: pagina non leggibile (${r.status})`); continue }
+    const t = parseEvent(await r.text(), c.url)
+    if (t.skip) console.log(`Calendario: salto "${c.name}" (${t.skip})`)
+    else found.push(t)
+  }
+  console.log(`Calendario: ${candidates.length} eventi PBI, ${found.length} ranked in arrivo: ${list(found.map(t => `${t.name} (${t.starts_at.slice(0, 10)})`))}`)
+  if (sb) {
+    const urls = found.map(t => t.url)
+    const existing = urls.length ? await q(sb.from('tournaments').select('id, name, tier, starts_at, club, city, url, created_by_team').in('url', urls)) : []
+    const plan = planEvents(existing, found)
+    console.log(`Ranked nuove: ${list(plan.inserts.map(t => t.name))} | da correggere: ${list(plan.updates.map(t => t.name))}`)
+    plan.skipped.forEach(m => console.log('Calendario: ' + m))
+    if (!DRY) {
+      if (plan.inserts.length) await q(sb.from('tournaments').upsert(plan.inserts, { onConflict: 'url', ignoreDuplicates: true }))
+      for (const { id, ...f } of plan.updates) await q(sb.from('tournaments').update(f).eq('id', id).is('created_by_team', null))
+    }
+  }
+} catch (e) {
+  console.log(`::error::Importazione ranked dal calendario non riuscita: ${e.message}`)
+  process.exitCode = 1
+}
+
 // 1) lettura e controllo della classifica
-const res = await fetch(PBI_URL, { headers: { 'user-agent': 'FoxPoint/1.0 (uso interno Lake Fox)' } })
+const res = await fetch(PBI_URL, UA)
 if (!res.ok) throw new Error(`Il sito PBI ha risposto ${res.status}`)
 const html = await res.text()
 const rows = parseRanking(html)
@@ -31,10 +67,8 @@ if (problems.length) throw new Error(`Classifica non valida (${problems.join('; 
 
 if (!KEY) {
   console.log('::warning::Secret SUPABASE_SERVICE_ROLE_KEY non configurato: aggiornamento PBI saltato.')
-  process.exit(0)
+  process.exit(process.exitCode ?? 0)
 }
-const sb = createClient(SUPABASE_URL, KEY, { auth: { persistSession: false } })
-
 // 2) piano delle modifiche
 const bladers = await q(sb.from('bladers').select('id, nickname, pbi_nickname, pbi_id, pro_rank'))
 const plan = planSync(bladers, rows, { topN: TOP_N })
@@ -43,7 +77,7 @@ console.log(`Doppioni rinominati: ${list(plan.renames.map(r => `${r.from} -> ${r
 console.log(`Cloni "nome + team" da eliminare: ${list(plan.duplicates.map(d => `${d.nickname} (resta ${d.keep})`))}`)
 console.log(`Usciti dalla classifica: ${list(plan.clears.map(c => c.nickname))}`)
 if (plan.skipped.length) console.log(`::warning::Saltati: ${plan.skipped.join('; ')}`)
-if (DRY) { console.log('Modalità prova: nessuna modifica scritta.'); process.exit(0) }
+if (DRY) { console.log('Modalità prova: nessuna modifica scritta.'); process.exit(process.exitCode ?? 0) }
 
 // 3) scrittura
 const now = new Date().toISOString()
