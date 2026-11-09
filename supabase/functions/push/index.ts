@@ -60,15 +60,31 @@ export async function sendPush(sub, payload, keys) {
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type, authorization, apikey, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
+// chiave del server: le nuove "secret keys" (SUPABASE_SECRET_KEYS, JSON) oppure la vecchia service_role
+function serverKey() {
+  try { const k = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}'); const v = k.default || Object.values(k)[0]; if (v) return v } catch { /* formato diverso */ }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+}
+
 Deno.serve(async (req) => {
+  try { return await handle(req) } catch (e) {
+    console.log('push errore', String(e?.stack || e))
+    return json({ error: String(e?.message || e) }, 500)
+  }
+})
+
+async function handle(req) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  const sb = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } })
+  const key = serverKey()
+  if (!key) return json({ error: 'Chiave del server non trovata nelle variabili della funzione' }, 500)
+  const sb = createClient(Deno.env.get('SUPABASE_URL'), key, { auth: { persistSession: false } })
 
   let { data: cfg, error } = await sb.from('push_config').select('*').eq('id', 1).single()
-  if (error || !cfg) return json({ error: 'Esegui prima lo script foxpoint_09_notifiche.sql' }, 500)
+  if (error || !cfg) return json({ error: 'Lettura di push_config non riuscita: ' + (error?.message || 'esegui lo script foxpoint_09_notifiche.sql') }, 500)
   if (!cfg.public_key) {   // primo avvio: crea le chiavi una volta sola
     const k = await makeVapidKeys()
-    await sb.from('push_config').update({ public_key: k.publicKey, private_key: k.privateJwk }).eq('id', 1).is('public_key', null)
+    const up = await sb.from('push_config').update({ public_key: k.publicKey, private_key: k.privateJwk }).eq('id', 1).is('public_key', null)
+    if (up.error) return json({ error: 'Salvataggio delle chiavi non riuscito: ' + up.error.message }, 500)
     cfg = (await sb.from('push_config').select('*').eq('id', 1).single()).data
   }
   const body = await req.json().catch(() => ({}))
@@ -94,4 +110,4 @@ Deno.serve(async (req) => {
   // pulizia: messaggi inviati più vecchi di 30 giorni
   await sb.from('push_queue').delete().lt('created_at', new Date(Date.now() - 30 * 864e5).toISOString()).not('sent_at', 'is', null)
   return json({ jobs: jobs?.length || 0, sent, removed })
-})
+}
