@@ -163,7 +163,7 @@ function Team({ m, out }) {
       {tab === 'rank' && d.board.map((r, i) => (
         <div className={`row click${r.blader_id === me ? ' me' : ''}`} key={r.blader_id} style={{ animationDelay: `${i * 35}ms` }}
           onClick={() => { setPid(r.blader_id); setTab('profile') }}>
-          <span className="av">{r.fox_points > 0 && MEDAL[pos[i] - 1] || ini(r.nickname)}</span>
+          <span className="av">{r.fox_points > 0 && i < 3 && MEDAL[i] || ini(r.nickname)}</span>
           <span>{pos[i]}. <b>{r.nickname}</b><small>Taglie {r.bounty_points} · Ranked {r.ranked_points}</small></span>
           <span className="pts">{r.fox_points}</span>
         </div>
