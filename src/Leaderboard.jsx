@@ -26,7 +26,8 @@ function weekly(d) {
 export function Leaderboard({ d, me, nick, openProfile }) {
   const pos = positions(d.board)
   const { gain, oldPos } = weekly(d)
-  const rows = d.board.map((r, i) => ({ ...r, pos: pos[i], move: oldPos[r.blader_id] - pos[i], gain: gain[r.blader_id] || 0 }))
+  // niente frecce per chi è a zero punti: il suo movimento sarebbe solo effetto degli altri
+  const rows = d.board.map((r, i) => ({ ...r, pos: pos[i], move: r.fox_points > 0 ? oldPos[r.blader_id] - pos[i] : 0, gain: gain[r.blader_id] || 0 }))
   const podium = rows.slice(0, 3).filter(r => r.fox_points > 0)
   const rest = rows.slice(podium.length)
   const mine = rows.find(r => r.blader_id === me)

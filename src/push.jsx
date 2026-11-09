@@ -31,6 +31,17 @@ async function publicKey() {
   throw new Error('La funzione "push" su Supabase non risponde: controlla che esista con questo nome e che "Verify JWT" sia spento')
 }
 
+// all'uscita: questo telefono smette di ricevere gli avvisi dell'account (potrebbe usarlo un'altra persona)
+export async function unsubscribeDevice() {
+  try {
+    const reg = 'serviceWorker' in navigator && await navigator.serviceWorker.getRegistration()
+    const s = reg && await reg.pushManager?.getSubscription()
+    if (!s) return
+    await sb.from('push_subscriptions').delete().eq('endpoint', s.endpoint)
+    await s.unsubscribe()
+  } catch { /* uscita comunque */ }
+}
+
 export function Notifications({ me, admin }) {
   const [open, setOpen] = useState(false), [sub, setSub] = useState(null), [prefs, setPrefs] = useState(null), [busy, setBusy] = useState(false)
   const [perm, setPerm] = useState(() => (typeof Notification !== 'undefined' ? Notification.permission : 'default'))

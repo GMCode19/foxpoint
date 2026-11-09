@@ -1,7 +1,7 @@
 // Fox Point - service worker
 // 1) notifiche: le mostra e, al tocco, apre l'app nella sezione giusta
 // 2) apertura senza rete: tiene una copia dell'app (la pagina si aggiorna sempre dalla rete quando c'è)
-const CACHE = 'fx-app-v1'
+const CACHE = 'fx-app-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', e => e.waitUntil((async () => {
@@ -9,12 +9,23 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
   await self.clients.claim()
 })()))
 
+// salva la pagina e toglie dalla copia i file delle versioni vecchie dell'app (non si accumulano a ogni aggiornamento)
+async function keep(res) {
+  const html = await res.clone().text()
+  const c = await caches.open(CACHE)
+  await c.put('./', res)
+  for (const req of await c.keys()) {
+    const p = new URL(req.url).pathname
+    if (p.includes('/assets/') && !html.includes(p.slice(p.indexOf('/assets/') + 1))) await c.delete(req)
+  }
+}
+
 self.addEventListener('fetch', e => {
   const r = e.request, u = new URL(r.url)
   if (r.method !== 'GET' || u.origin !== location.origin) return
   if (r.mode === 'navigate') {   // pagina: prima la rete, se manca la copia salvata
     e.respondWith(fetch(r).then(res => {
-      if (res.ok) { const c = res.clone(); caches.open(CACHE).then(x => x.put('./', c)) }
+      if (res.ok) { const k = keep(res.clone()).catch(() => {}); try { e.waitUntil(k) } catch { /* già in corso */ } }
       return res
     }).catch(() => caches.match('./')))
     return

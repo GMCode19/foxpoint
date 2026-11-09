@@ -16,6 +16,7 @@ export default function App() {
     sb.auth.getSession().then(({ data }) => setSession(data.session))
     const { data } = sb.auth.onAuthStateChange((ev, s) => {
       if (ev === 'PASSWORD_RECOVERY') setRecovery(true)
+      if (ev === 'SIGNED_OUT') clearCache()   // dati del team non lasciati sul telefono dopo l'uscita
       setSession(s)
     })
     return () => data.subscription.unsubscribe()
@@ -48,6 +49,7 @@ function Home({ user }) {
 
 // ultimi dati letti, salvati sul telefono: l'app si apre subito e funziona anche senza rete (in sola lettura)
 function readCache(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : undefined } catch { return undefined } }
+function clearCache() { try { Object.keys(localStorage).filter(k => k.startsWith('fx-')).forEach(k => localStorage.removeItem(k)) } catch { /* niente da pulire */ } }
 function writeCache(k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* spazio pieno o modalità privata */ } }
 
 const HASH = { rank: 'classifica', bounty: 'taglie', ranked: 'ranked', profile: 'profilo', admin: 'admin' }

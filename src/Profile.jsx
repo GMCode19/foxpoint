@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { sb, BADGES, ini, phaseName, positions } from './lib'
 import { Sheet, ask } from './ui'
 import { Icon } from './icons'
-import { Notifications } from './push'
+import { Notifications, unsubscribeDevice } from './push'
 
 // avanzamento verso ogni traguardo: [fatto, obiettivo]
 const PROGRESS = {
@@ -36,7 +36,7 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part }) {
   const parts = [['Taglie', row.bounty_points, 'b'], ['Ranked', row.ranked_points, 'r'], ['Correzioni', manual, 'm']].filter(p => p[1] > 0)
   const sum = parts.reduce((s, p) => s + p[1], 0) || 1
 
-  async function logout() { if (await ask({ title: 'Vuoi uscire?', text: 'Per rientrare ti serviranno email e password.', ok: 'Esci' })) sb.auth.signOut() }
+  async function logout() { if (await ask({ title: 'Vuoi uscire?', text: 'Per rientrare ti serviranno email e password. Su questo telefono smetteranno di arrivare le notifiche.', ok: 'Esci' })) { await unsubscribeDevice(); sb.auth.signOut() } }
 
   return <>
     {!self && <button type="button" className="back" onClick={back}><Icon.back width="18" height="18" /> Classifica</button>}

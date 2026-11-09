@@ -67,7 +67,9 @@ export async function once(key, fn) {
 }
 
 // Indirizzi temporanei delle foto: riusati finché validi, così il browser non riscarica le immagini a ogni azione
-const PHOTO_TTL = 12 * 3600, signedCache = new Map()   // path -> { url, exp }
+// salvati anche sul telefono: alla riapertura dell'app le foto restano in cache invece di essere riscaricate
+const PHOTO_TTL = 12 * 3600, PHOTO_KEY = 'fx-photo-urls'
+const signedCache = (() => { try { return new Map(JSON.parse(localStorage.getItem(PHOTO_KEY) || '[]')) } catch { return new Map() } })()   // path -> { url, exp }
 export async function loadPhotos(team) {
   const { data, error } = await sb.from('blader_photos').select('blader_id, path').eq('team_id', team)
   if (error || !data?.length) return {}
@@ -76,6 +78,8 @@ export async function loadPhotos(team) {
   if (missing.length) {
     const { data: signed } = await sb.storage.from(PHOTO_BUCKET).createSignedUrls(missing, PHOTO_TTL)
     signed?.forEach((s, i) => { if (s?.signedUrl) signedCache.set(missing[i], { url: s.signedUrl, exp: now + PHOTO_TTL * 1000 }) })
+    for (const [k, v] of signedCache) if (v.exp < now || !data.some(p => p.path === k)) signedCache.delete(k)
+    try { localStorage.setItem(PHOTO_KEY, JSON.stringify([...signedCache])) } catch { /* spazio pieno */ }
   }
   return Object.fromEntries(data.filter(p => signedCache.has(p.path)).map(p => [p.blader_id, signedCache.get(p.path).url]))
 }

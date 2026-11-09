@@ -95,7 +95,10 @@ async function handle(req) {
   const { data: jobs } = await sb.from('push_queue').select('*').is('sent_at', null).order('id').limit(50)
   let sent = 0, removed = 0
   for (const job of jobs || []) {
-    await sb.from('push_queue').update({ sent_at: new Date().toISOString() }).eq('id', job.id).is('sent_at', null)
+    // un messaggio lo invia una sola chiamata: il database sveglia la funzione più volte quasi insieme
+    // (es. approvazione = avviso + sorpasso), e solo chi riesce a "prenotarlo" lo spedisce
+    const { data: mine } = await sb.from('push_queue').update({ sent_at: new Date().toISOString() }).eq('id', job.id).is('sent_at', null).select('id')
+    if (!mine?.length) continue
     const { data: subs } = await sb.from('push_subscriptions').select('*').in('blader_id', job.blader_ids)
     const payload = JSON.stringify({ title: job.title, body: job.body, url: job.url, tag: job.tag })
     await Promise.all((subs || []).filter(s => s.prefs?.[job.kind] !== false).map(async s => {
