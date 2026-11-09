@@ -1,0 +1,15 @@
+name: tmp-cal
+on: workflow_dispatch
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          node -e '
+          (async()=>{const h=await (await fetch("https://www.probladers.it/calendario-eventi",{headers:{"user-agent":"FoxPoint/1.0 (uso interno Lake Fox)"}})).text();
+          console.log("LEN",h.length,"NEXT",h.includes("__NEXT_DATA__"),"LDJSON",(h.match(/application\/ld\+json/g)||[]).length);
+          const i=h.indexOf("2000");console.log("---AROUND---");console.log(h.slice(Math.max(0,i-3000),i+3000));
+          for (const m of h.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) console.log("---LD---",m[1].slice(0,3000));
+          const e=await (await fetch("https://www.probladers.it/calendario-eventi/pbi-320-2000s-kids",{headers:{"user-agent":"FoxPoint/1.0 (uso interno Lake Fox)"}})).text();
+          console.log("---EVENT LD---");for (const m of e.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) console.log(m[1].slice(0,3000));
+          })()'
