@@ -5,7 +5,6 @@ import { sb, err } from './lib'
 import { Sheet, toast } from './ui'
 import { Icon } from './icons'
 
-const FN_URL = 'https://udjviairelbvohdfwhhb.supabase.co/functions/v1/push'
 const KINDS = [
   ['mine', 'Le mie taglie e i miei risultati', 'Vittorie e piazzamenti confermati, e chi dichiara di averti battuto'],
   ['overtake', 'Sorpassi in classifica', 'Quando qualcuno del team ti supera'],
@@ -17,14 +16,19 @@ const standalone = () => window.matchMedia?.('(display-mode: standalone)').match
 const ios = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 
+// chiave pubblica per l'iscrizione; se la funzione "push" non è ancora partita, la avvia il database e si aspetta
 async function publicKey() {
-  const { data, error } = await sb.rpc('push_public_key')
-  if (error) throw new Error('Le notifiche non sono ancora attive: va eseguito lo script foxpoint_09_notifiche.sql su Supabase')
-  if (data) return data
-  const r = await fetch(FN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"init":true}' }).catch(() => null)
-  const j = r?.ok ? await r.json().catch(() => null) : null
-  if (!j?.publicKey) throw new Error('Le notifiche non sono ancora attive: manca la funzione "push" su Supabase')
-  return j.publicKey
+  for (let i = 0; i < 12; i++) {
+    const { data, error } = await sb.rpc('push_public_key')
+    if (error) throw new Error('Le notifiche non sono ancora attive: va eseguito lo script foxpoint_09_notifiche.sql su Supabase')
+    if (data) return data
+    if (i === 0) {
+      const r = await sb.rpc('push_init')
+      if (r.error) throw new Error('Le notifiche non sono ancora attive: va eseguito lo script foxpoint_10_notifiche_chiave.sql su Supabase')
+    }
+    await new Promise(r => setTimeout(r, 1000))
+  }
+  throw new Error('La funzione "push" su Supabase non risponde: controlla che esista con questo nome e che "Verify JWT" sia spento')
 }
 
 export function Notifications({ me, admin }) {

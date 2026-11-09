@@ -31,7 +31,7 @@ Da eseguire nel SQL Editor di Supabase:
 - Unire il profilo doppio di Nikkk (una tantum): `06_unisci_nikkk`.
 - Attivare le foto dei giocatori con taglia: `07_foto`.
 - Taglie Top 10 legate alla posizione: `08_taglie_posizione`.
-- Aggiornamenti in tempo reale e notifiche: `09_notifiche`, poi la funzione `supabase/functions/push/index.ts` creata in Supabase (Edge Functions) con nome `push` e "Verify JWT" disattivato.
+- Aggiornamenti in tempo reale e notifiche: `09_notifiche` e `10_notifiche_chiave`, poi la funzione `supabase/functions/push/index.ts` creata in Supabase (Edge Functions) con nome `push` e "Verify JWT" disattivato.
 
 ## Avviso
 Progetto interno e non ufficiale dei Lake Fox, senza legami con Pro Bladers Italia o con i titolari del marchio Beyblade.

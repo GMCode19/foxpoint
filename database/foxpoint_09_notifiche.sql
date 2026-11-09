@@ -24,8 +24,10 @@ create table if not exists push_config (
   public_key  text,                 -- chiavi VAPID: le crea la funzione "push" al primo avvio
   private_key text,
   hook_secret text not null default replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''),
-  function_url text not null default 'https://udjviairelbvohdfwhhb.supabase.co/functions/v1/push'
+  function_url text not null default 'https://udjviairelbvohdfwhhb.supabase.co/functions/v1/push',
+  api_key     text                  -- chiave publishable (pubblica): Supabase la chiede per chiamare la funzione
 );
+alter table push_config add column if not exists api_key text;
 insert into push_config (id) values (1) on conflict (id) do nothing;
 alter table push_config enable row level security;
 
@@ -84,7 +86,7 @@ declare c push_config;
 begin
   select * into c from push_config where id = 1;
   perform net.http_post(url := c.function_url, body := '{}'::jsonb,
-    headers := jsonb_build_object('Content-Type', 'application/json', 'x-hook-secret', c.hook_secret));
+    headers := jsonb_build_object('Content-Type', 'application/json', 'apikey', c.api_key, 'x-hook-secret', c.hook_secret));
   return null;
 exception when others then
   return null;   -- una notifica non riuscita non deve mai bloccare dichiarazioni o approvazioni
@@ -207,6 +209,8 @@ revoke execute on function push_enqueue(uuid[], text, text, text, text, text) fr
 revoke execute on function _nick(uuid), _team_admins(uuid), _team_members(uuid) from public, anon, authenticated;
 revoke execute on function push_wake(), push_on_claim(), push_on_entry(), push_on_join(), push_on_tournament(), push_on_points() from public, anon, authenticated;
 grant execute on function push_public_key(), push_test() to authenticated;
+
+-- la chiave publishable e l'avvio della funzione sono nello script 10
 
 -- controllo
 select 'Notifiche pronte' as stato,
