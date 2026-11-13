@@ -338,3 +338,21 @@ input.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;hei
 input.switch:checked{background:#2fae8c}input.switch:checked::after{transform:translateX(20px)}
 input.switch:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 body:has(.sheet-wrap) .toasts{bottom:auto;top:calc(12px + env(safe-area-inset-top))}
+/* inquadratura: proporzioni dal riquadro (--r = altezza/larghezza); foto profilo rotonda */
+.crop-box{width:min(100%,max(170px,calc((100vh - 350px) / var(--r,1.5))));width:min(100%,max(170px,calc((100svh - 350px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) / var(--r,1.5))));aspect-ratio:1/var(--r,1.5)}
+.crop-box.round .crop-grid{border-radius:50%;box-shadow:0 0 0 999px rgba(11,8,16,.55)}
+/* foto profilo */
+.avatar{display:inline-grid;place-items:center;overflow:hidden;border-radius:50%;flex-shrink:0}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar-edit{position:relative;display:inline-block;cursor:pointer;border-radius:50%}
+.avatar-edit:focus-within{outline:2px solid var(--ac);outline-offset:3px}
+.avatar-badge{position:absolute;right:-2px;bottom:-2px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--btn2);color:#fff;border:2px solid var(--card)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.split-legend .lost{color:var(--down)}.split-legend .lost b{color:var(--down)}
+.pts.minus{color:var(--down)}
+.confirm-card{padding:14px;margin-bottom:10px;border-radius:18px;background:linear-gradient(135deg,#3a1f6e,#211538);border:1px solid #6b44b3;animation:up .35s both}
+.confirm-card p{margin:0 0 8px;line-height:1.45}.confirm-card .mut{font-size:.88rem}
+.bounty-section h2 small{font-family:system-ui;font-size:.75rem;color:var(--mut);letter-spacing:0;margin-left:4px}
+label.field{display:flex;flex-direction:column;gap:6px;font-size:.88rem;color:#cbbfe0}
+label.field select{width:100%}
+.mini-av.avatar img{border-radius:50%}

@@ -16,7 +16,8 @@ drop function if exists current_blader_id, my_team_ids, is_team_admin, is_any_ad
   ranked_admin_register, ranked_revoke, keep_one_admin,
   my_admin_team_ids, set_blader_photo, remove_blader_photo, bounty_rank_value_sync,
   push_public_key, push_test, push_enqueue, push_wake, push_on_claim, push_on_entry, push_on_join, push_on_tournament, push_on_points,
-  _nick, _team_admins, _team_members cascade;
+  _nick, _team_admins, _team_members,
+  fox_value, fox_rank, fox_sync, fox_sync_ledger, fox_sync_member, _approve_claim, respond_claim, set_avatar cascade;
 
 -- regole di accesso alle foto (i file nello spazio "foto-bersagli" restano: si cancellano da Storage)
 drop policy if exists "foto-bersagli lettura team" on storage.objects;

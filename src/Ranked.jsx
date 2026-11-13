@@ -1,7 +1,8 @@
 import { Fragment, useState } from 'react'
-import { sb, PHASES, err, fmtDate, phaseName, ini } from './lib'
+import { sb, PHASES, err, fmtDate, phaseName } from './lib'
 import { ask, toast } from './ui'
 import { Icon } from './icons'
+import { Avatar } from './Avatar'
 
 // nomi brevi per i bottoni del piazzamento
 const SHORT = { winner: 'Vittoria', final: 'Finale', sf: 'Semifinale', qf: 'Quarti', r16: 'Ottavi', r32: 'Top 32', r64: 'Top 64', r128: 'Top 128', groups: 'Gironi' }
@@ -60,8 +61,9 @@ export function Ranked({ d, team, me, admin, part, nick, act }) {
     {!upcoming.length && <p className="empty">Nessuna ranked in programma. Le nuove ranked del calendario PBI arrivano da sole ogni mattina.</p>}
     {(showLater ? upcoming : soon).map((t, i, list) => {
       const on = going(t)
-      const who = entriesOf(t).filter(e => e.blader_id !== me).map(e => nick(e.blader_id))
-      if (on) who.push(nick(me))
+      const ids = entriesOf(t).filter(e => e.blader_id !== me).map(e => e.blader_id)
+      if (on) ids.push(me)
+      const who = ids.map(nick)
       const day = dayName(t.starts_at)
       return (<Fragment key={t.id}>
         {(i === 0 || dayName(list[i - 1].starts_at) !== day) && <h3 className="day">{day}</h3>}
@@ -71,7 +73,7 @@ export function Ranked({ d, team, me, admin, part, nick, act }) {
             <b>{t.name}</b>
             <small>{new Date(t.starts_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}{t.city ? ` · ${t.city}` : t.club ? ` · ${t.club}` : ''}{t.url && <> · <a href={t.url} target="_blank" rel="noreferrer">pagina PBI</a></>}</small>
             <span className="going">
-              {who.slice(0, 5).map(n => <span key={n} className={'mini-av' + (n === nick(me) ? ' me' : '')} title={n}>{ini(n)}</span>)}
+              {ids.slice(0, 5).map(x => <Avatar key={x} className={'mini-av' + (x === me ? ' me' : '')} url={d.avatars?.[x]} name={nick(x)} title={nick(x)} />)}
               <small>{who.length ? (who.length === 1 ? who[0] : `${who.length} Lake Fox`) : 'Nessun Lake Fox'}</small>
             </span>
           </span>

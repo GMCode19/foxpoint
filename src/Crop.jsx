@@ -5,17 +5,19 @@ import { useEffect, useRef, useState } from 'react'
 // Quello che si vede nel riquadro è esattamente quello che comparirà sul manifesto (formato verticale 2:3).
 // Si può rimpicciolire fino a vedere la foto intera (es. un manifesto verticale): lo spazio libero
 // viene riempito con la foto stessa sfocata e scurita, uguale nell'anteprima e nella foto salvata.
-export const RATIO = 1.5                  // altezza / larghezza del manifesto: 2:3
-const OUT_W = 640, OUT_H = OUT_W * RATIO, MAX_ZOOM = 4
+export const RATIO = 1.5                  // altezza / larghezza del manifesto: 2:3 (foto profilo: 1, quadrata)
+const MAX_ZOOM = 4
 
-export function CropModal({ file, name, onCancel, onSave }) {
+export function CropModal({ file, name, onCancel, onSave, ratio = RATIO, title }) {
+  const R = ratio, OUT_W = R === 1 ? 400 : 640, OUT_H = OUT_W * R
+  const self = !!title   // la propria foto profilo: niente consenso da chiedere
   const box = useRef(null), imgRef = useRef(null), pointers = useRef(new Map()), pinch = useRef(null)
   const [src, setSrc] = useState(null), [nat, setNat] = useState(null), [V, setV] = useState(300)
   // vista = zoom + spostamento in un unico stato: ogni passo del gesto si calcola sempre sui valori più recenti
   const [view, setView] = useState({ z: 1, x: 0, y: 0 }), viewRef = useRef(view)
   viewRef.current = view
   const { z } = view
-  const [consent, setConsent] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('')
+  const [consent, setConsent] = useState(self), [busy, setBusy] = useState(false), [error, setError] = useState('')
 
   useEffect(() => {
     const url = URL.createObjectURL(file); setSrc(url)
@@ -32,7 +34,7 @@ export function CropModal({ file, name, onCancel, onSave }) {
   }, [])
 
   // geometria: riquadro largo V e alto H (2:3)
-  const H = V * RATIO
+  const H = V * R
   const base = nat ? Math.max(V / nat.w, H / nat.h) : 1                    // zoom 1 = la foto riempie il riquadro
   const minZ = nat ? Math.min(V / nat.w, H / nat.h) / base : 1             // zoom minimo = foto intera
   const w = nat ? nat.w * base * z : V, h = nat ? nat.h * base * z : H
@@ -95,8 +97,8 @@ export function CropModal({ file, name, onCancel, onSave }) {
       const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'
       if (w < V - 0.5 || h < H - 0.5) {
         // sfondo: la foto ridotta a 24x36 px e riallargata (sfocatura che funziona su tutti i browser, Safari compreso)
-        const t = document.createElement('canvas'); t.width = 24; t.height = 24 * RATIO
-        const sw = Math.min(nat.w, nat.h / RATIO), sh = sw * RATIO   // ritaglio centrale in 2:3
+        const t = document.createElement('canvas'); t.width = 24; t.height = Math.round(24 * R)
+        const sw = Math.min(nat.w, nat.h / R), sh = sw * R   // ritaglio centrale nelle proporzioni del riquadro
         t.getContext('2d').drawImage(img, (nat.w - sw) / 2, (nat.h - sh) / 2, sw, sh, 0, 0, t.width, t.height)
         g.drawImage(t, -OUT_W * 0.08, -OUT_H * 0.08, OUT_W * 1.16, OUT_H * 1.16)
         g.fillStyle = 'rgba(11, 8, 16, 0.45)'; g.fillRect(0, 0, OUT_W, OUT_H)
@@ -118,9 +120,9 @@ export function CropModal({ file, name, onCancel, onSave }) {
   return (
     <div className="crop-modal" role="dialog" aria-modal="true" aria-label={`Foto di ${name}`}>
       <div className="crop-card">
-        <h2>Foto di {name}</h2>
+        <h2>{title || `Foto di ${name}`}</h2>
         <p className="mut note">Trascina per spostare, due dita per lo zoom.</p>
-        <div className="crop-box" ref={box} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+        <div className={'crop-box' + (R === 1 ? ' round' : '')} style={{ '--r': R }} ref={box} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
           {src && nat && z < 1 && <img className="crop-bg" src={src} alt="" draggable={false} />}
           {src && <img ref={imgRef} src={src} alt="" draggable={false} onLoad={onLoad}
             onError={() => setError('Formato immagine non supportato: prova con una foto JPG o PNG')}
@@ -136,10 +138,10 @@ export function CropModal({ file, name, onCancel, onSave }) {
           <button type="button" className={'ghost' + (z <= minZ + 0.001 ? ' on' : '')} onClick={() => zoomTo(minZ)}>Foto intera</button>
           <button type="button" className={'ghost' + (Math.abs(z - 1) < 0.001 ? ' on' : '')} onClick={() => zoomTo(1)}>Riempi</button>
         </div>}
-        <label className="chk crop-consent">
+        {!self && <label className="chk crop-consent">
           <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />
           {name} mi ha dato il consenso a mettere questa foto nell'app del team (se è minorenne, un suo genitore).
-        </label>
+        </label>}
         {error && <p className="notice bad">{error}</p>}
         <div className="crop-actions">
           <button className="ghost" onClick={onCancel} disabled={busy}>Annulla</button>

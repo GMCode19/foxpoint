@@ -14,5 +14,6 @@ export const Icon = {
   logout: p => <svg {...P} {...p}><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" /></svg>,
   bell: p => <svg {...P} {...p}><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0" /></svg>,
   share: p => <svg {...P} {...p}><path d="M12 3v13M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>,
+  camera: p => <svg {...P} {...p}><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>,
   wifiOff: p => <svg {...P} {...p}><path d="M2 8.8a15 15 0 0 1 4.2-2.6M22 8.8A15 15 0 0 0 10.7 5M5 12.6a10 10 0 0 1 4-2.2M19 12.6a10 10 0 0 0-2.3-1.5M8.5 16.3a5 5 0 0 1 7 0M12 20h.01M3 3l18 18" /></svg>,
 }

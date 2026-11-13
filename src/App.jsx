@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { sb, LOGO, PHOTO_BUCKET, err, fetchAll, once, loadPhotos } from './lib'
+import { sb, LOGO, PHOTO_BUCKET, AVATAR_BUCKET, err, fetchAll, once, loadPhotos, loadAvatars } from './lib'
 import { Auth, NewPassword, Join } from './Auth'
 import { Profile } from './Profile'
 import { Ranked } from './Ranked'
@@ -93,7 +93,7 @@ function Team({ m }) {
   const [d, setD] = useState(() => cached.current ? build(cached.current.raw) : null)
   const [offline, setOffline] = useState(null)   // ora degli ultimi dati, se non si riesce ad aggiornarli
   const [part, setPart] = useState(m.teams.participation_points)
-  const [crop, setCrop] = useState(null)   // { b, file }: inquadratura della foto in corso
+  const [crop, setCrop] = useState(null)   // { b, file } manifesto di un ricercato, oppure { avatar: true, file } foto profilo
   const seq = useRef(0), lastLoad = useRef(0)   // solo l'ultimo caricamento avviato aggiorna lo schermo
 
   const load = useCallback(async () => {
@@ -118,7 +118,10 @@ function Team({ m }) {
         loadPhotos(team).catch(() => ({})),   // le foto non devono mai bloccare l'app
       ])
       if (my !== seq.current) return
-      const raw = { board, bounties, claims, bladers, reqs, led, tours, entries, photos, tiers, tp }
+      const members = new Set(board.map(r => r.blader_id))
+      const avatars = await loadAvatars(bladers.filter(b => members.has(b.id))).catch(() => ({}))
+      if (my !== seq.current) return
+      const raw = { board, bounties, claims, bladers, reqs, led, tours, entries, photos, avatars, tiers, tp }
       setD(build(raw)); setOffline(null)
       writeCache(cacheKey, { at: Date.now(), raw })
     } catch (e) {
@@ -157,11 +160,21 @@ function Team({ m }) {
   const byRank = (a, b) => (d.bl[a.target_id]?.pro_rank ?? 999) - (d.bl[b.target_id]?.pro_rank ?? 999)
   const active = d.bounties.filter(b => b.active).sort(byRank)
   const free = d.board.filter(r => !d.bl[r.blader_id]?.user_id)
-  const todo = admin ? d.claims.filter(c => c.status === 'pending').length + d.entries.filter(e => e.status === 'pending').length + d.reqs.length : 0
+  const isMember = id => d.board.some(r => r.blader_id === id)
+  // da decidere per un admin: vittorie su esterni, contestate, senza risposta da 3 giorni (escluse quelle in cui è coinvolto)
+  const adminClaims = admin ? d.claims.filter(c => (c.status === 'disputed' || (c.status === 'pending' && (!isMember(c.target_id) || Date.now() - new Date(c.created_at) > 3 * 864e5)))
+    && c.hunter_id !== me && c.target_id !== me) : []
+  const todo = admin ? adminClaims.length + d.entries.filter(e => e.status === 'pending').length + d.reqs.length : 0
+  const incoming = d.claims.filter(c => c.status === 'pending' && c.target_id === me)   // "dichiara di averti battuto": tocca a me
 
-  async function claim(b) {
+  async function respond(c, accept) {
+    if (!accept && !await ask({ title: `${nick(c.hunter_id)} non ti ha battuto?`, text: 'La dichiarazione passa a un admin, che deciderà.', ok: 'Non è vero', danger: true })) return
+    if (await act('respond_claim', { p_claim: c.id, p_accept: accept }))
+      toast(accept ? `Confermato: ${nick(c.hunter_id)} prende ${c.value_snapshot} pt` : 'Contestazione inviata agli admin', { kind: accept ? 'ok' : '' })
+  }
+  async function claim(b, tournament) {
     return once('claim' + b.id, async () => {
-      const { error } = await sb.from('claims').insert({ bounty_id: b.id, hunter_id: me })
+      const { error } = await sb.from('claims').insert({ bounty_id: b.id, hunter_id: me, tournament_id: tournament })
       if (error) { err(error); return false }
       await load(); return true
     })
@@ -206,6 +219,30 @@ function Team({ m }) {
   }
   const openProfile = id => { setPid(id); setTab('profile') }
 
+  // foto profilo: si carica nella cartella personale, poi si registra; la vecchia viene cancellata
+  async function uploadAvatar({ blob, ext }) {
+    await once('avatar', async () => {
+      try {
+        const path = `${me}/${Date.now()}.${ext}`
+        const up = await sb.storage.from(AVATAR_BUCKET).upload(path, blob, { contentType: blob.type, upsert: false })
+        if (up.error) throw up.error
+        const { data: old, error } = await sb.rpc('set_avatar', { p_path: path })
+        if (error) { await sb.storage.from(AVATAR_BUCKET).remove([path]); throw error }
+        if (old) await sb.storage.from(AVATAR_BUCKET).remove([old])
+        setCrop(null); toast('Foto profilo aggiornata', { kind: 'ok' }); await load()
+      } catch (e) {
+        err(/set_avatar|Bucket not found/i.test(e?.message || '') ? new Error('Le foto profilo non sono ancora attive: esegui lo script foxpoint_11_taglie_fox_avatar.sql su Supabase') : e)
+      }
+    })
+  }
+  async function removeAvatar() {
+    if (!await ask({ title: 'Togliere la foto profilo?', ok: 'Togli', danger: true })) return
+    const { data: old, error } = await sb.rpc('set_avatar', { p_path: null })
+    if (error) return err(error)
+    if (old) await sb.storage.from(AVATAR_BUCKET).remove([old])
+    toast('Foto profilo tolta'); await load()
+  }
+
   const tabs = [['rank', 'Classifica', Icon.trophy], ['bounty', 'Taglie', Icon.target], ['ranked', 'Ranked', Icon.calendar], ['profile', 'Profilo', Icon.user]]
   const navOn = tab === 'admin' ? 'profile' : tab
   return (
@@ -218,23 +255,29 @@ function Team({ m }) {
 
       <main key={tab + (tab === 'profile' ? pid : '')} className="view">
         {tab === 'rank' && <Leaderboard d={d} me={me} nick={nick} openProfile={openProfile} />}
-        {tab === 'bounty' && <BountyBoard d={d} me={me} active={active} nick={nick} claim={claim} />}
-        {tab === 'ranked' && <Ranked d={d} team={team} me={me} admin={admin} part={part} nick={nick} act={act} reload={load} />}
-        {tab === 'profile' && <Profile id={pid} me={me} d={d} nick={nick} admin={admin} todo={todo} goTab={setTab} back={() => setTab('rank')} part={part} />}
+        {tab === 'bounty' && <BountyBoard d={d} me={me} active={active} nick={nick} claim={claim} incoming={incoming} respond={respond} isMember={isMember} />}
+        {tab === 'ranked' && <Ranked d={d} team={team} me={me} admin={admin} part={part} nick={nick} act={act} />}
+        {tab === 'profile' && <Profile id={pid} me={me} d={d} nick={nick} admin={admin} todo={todo} goTab={setTab} back={() => setTab('rank')} part={part}
+          onAvatar={file => setCrop({ avatar: true, file })} removeAvatar={removeAvatar} />}
         {tab === 'admin' && <AdminPanel d={d} team={team} nick={nick} act={act} part={part} onPart={setPart} active={active} free={free}
-          revoke={revoke} saveBounty={saveBounty} uploadPhoto={(b, file) => setCrop({ b, file })} removePhoto={removePhoto} back={() => setTab('profile')} reload={load} />}
+          revoke={revoke} saveBounty={saveBounty} uploadPhoto={(b, file) => setCrop({ b, file })} removePhoto={removePhoto} back={() => setTab('profile')} reload={load} adminClaims={adminClaims} isMember={isMember} me={me} />}
       </main>
 
       <nav className="tabbar" aria-label="Sezioni">
         {tabs.map(([k, l, I]) => (
           <button key={k} type="button" className={navOn === k ? 'on' : ''} aria-current={navOn === k ? 'page' : undefined}
             onClick={() => { if (k === 'profile') setPid(me); setTab(k) }}>
-            <span className="tab-ic"><I />{k === 'profile' && todo > 0 && <em className="dot" aria-label={`${todo} da approvare`}>{todo}</em>}</span>{l}
+            <span className="tab-ic"><I />
+              {k === 'profile' && todo > 0 && <em className="dot" aria-label={`${todo} da approvare`}>{todo}</em>}
+              {k === 'bounty' && incoming.length > 0 && <em className="dot" aria-label={`${incoming.length} da confermare`}>{incoming.length}</em>}
+            </span>{l}
           </button>
         ))}
       </nav>
 
-      {crop && <CropModal file={crop.file} name={nick(crop.b.target_id)} onCancel={() => setCrop(null)} onSave={img => uploadPhoto(crop.b, img)} />}
+      {crop && (crop.avatar
+        ? <CropModal file={crop.file} name={nick(me)} ratio={1} title="La tua foto profilo" onCancel={() => setCrop(null)} onSave={uploadAvatar} />
+        : <CropModal file={crop.file} name={nick(crop.b.target_id)} onCancel={() => setCrop(null)} onSave={img => uploadPhoto(crop.b, img)} />)}
     </div>
   )
 }

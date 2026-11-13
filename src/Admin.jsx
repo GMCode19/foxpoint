@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { sb, GROUPS, SYNC_URL, err, todayLocal, phaseName } from './lib'
+import { sb, GROUPS, SYNC_URL, err, phaseName } from './lib'
 import { ask, toast } from './ui'
 import { Icon } from './icons'
 import { makeCalc, AdminResult, AddTournament } from './Ranked'
+import { ago } from './Leaderboard'
 
-export function AdminPanel({ d, team, nick, act, part, onPart, active, free, revoke, saveBounty, uploadPhoto, removePhoto, back, reload }) {
+export function AdminPanel({ d, team, nick, act, part, onPart, active, free, revoke, saveBounty, uploadPhoto, removePhoto, back, reload, adminClaims, isMember, me }) {
   const [showAllClaims, setShowAllClaims] = useState(false)
   const okClaims = d.claims.filter(c => c.status === 'approved')
   const gi = c => GROUPS.findIndex(g => g[0] === c)
   const byRank = (a, b) => (d.bl[a.target_id]?.pro_rank ?? 999) - (d.bl[b.target_id]?.pro_rank ?? 999)
   const lastSync = Object.values(d.bl).map(b => b.pro_synced_at).filter(Boolean).sort().pop()
-  const pendClaims = d.claims.filter(c => c.status === 'pending'), pendRanked = d.entries.filter(e => e.status === 'pending')
+  const pendClaims = adminClaims, pendRanked = d.entries.filter(e => e.status === 'pending')
+  const waiting = d.claims.filter(c => c.status === 'pending' && isMember(c.target_id) && !pendClaims.includes(c))
   const tname = id => d.tourById[id]?.name || '?'
   const { phasesFor, calc } = makeCalc(d, part)
   const decide = async (fn, args, ok) => { if (await act(fn, args)) toast(ok, { kind: 'ok' }) }
@@ -22,7 +24,7 @@ export function AdminPanel({ d, team, nick, act, part, onPart, active, free, rev
     {!todo && <p className="empty">Tutto in ordine: nessuna richiesta in attesa.</p>}
     {pendClaims.map(c => (
       <div className="row" key={c.id}>
-        <span><b>{nick(c.hunter_id)}</b> ha battuto <b>{nick(c.target_id)}</b><small>Taglia · {c.played_on} · {c.value_snapshot} pt</small></span>
+        <span><b>{nick(c.hunter_id)}</b> ha battuto <b>{nick(c.target_id)}</b><small>{c.status === 'disputed' ? `Contestata da ${nick(c.target_id)} · ` : isMember(c.target_id) ? 'Nessuna risposta da 3 giorni · ' : ''}{tname(c.tournament_id) || c.played_on} · {c.value_snapshot} pt{c.penalty_snapshot ? ` / −${c.penalty_snapshot}` : ''}</small></span>
         <button onClick={() => decide('decide_claim', { p_claim: c.id, p_approve: true }, 'Vittoria approvata')}>Approva</button>
         <button className="ghost" onClick={() => decide('decide_claim', { p_claim: c.id, p_approve: false }, 'Vittoria rifiutata')}>Rifiuta</button>
       </div>
@@ -35,10 +37,18 @@ export function AdminPanel({ d, team, nick, act, part, onPart, active, free, rev
       </div>
     ))}
     {d.reqs.map(r => <ReqRow key={r.id} r={r} free={free} act={act} />)}
+    {waiting.length > 0 && <>
+      <p className="mut note">In attesa della risposta di chi è stato battuto (dopo 3 giorni senza risposta potete decidere voi):</p>
+      {waiting.map(c => (
+        <div className="row" key={c.id}>
+          <span>{nick(c.hunter_id)} → {nick(c.target_id)}<small>{tname(c.tournament_id) || c.played_on} · {ago(c.created_at)}{(c.hunter_id === me || c.target_id === me) ? ' · sei coinvolto' : ''}</small></span>
+        </div>
+      ))}
+    </>}
 
     <h2>Registra una vittoria</h2>
-    <RegisterWin board={d.board} active={active} nick={nick} act={act} />
-    <p className="mut note">Viene approvata subito, senza passare dalla dichiarazione del giocatore.</p>
+    <RegisterWin board={d.board} active={active} nick={nick} act={act} tours={d.tours} me={me} />
+    <p className="mut note">Viene approvata subito (anche le penalità). Non puoi registrare vittorie in cui sei coinvolto.</p>
 
     <h2>Registra un risultato ranked</h2>
     <AdminResult d={d} phasesFor={phasesFor} calc={calc} act={act} />
@@ -70,7 +80,7 @@ export function AdminPanel({ d, team, nick, act, part, onPart, active, free, rev
     ))}
 
     <h2>Taglie (valori e attivazione)</h2>
-    <p className="mut note">Top 10: il valore è legato alla <b>posizione</b>. Se cambi quello del 2°, cambi il valore del 2° posto: quando la classifica PBI cambia, ogni mattina le taglie slittano da sole (chi entra in top 10 si attiva, chi esce si disattiva).</p>
+    <p className="mut note">Fox Blader: valore automatico in base alla posizione Fox Point (1° 60, 2° 50, 3° 40, 4°-5° 30, poi 20); chi perde perde metà. Top 10: il valore è legato alla <b>posizione</b>. Se cambi quello del 2°, cambi il valore del 2° posto: quando la classifica PBI cambia, ogni mattina le taglie slittano da sole (chi entra in top 10 si attiva, chi esce si disattiva).</p>
     {[...d.bounties].sort((a, b) => gi(a.category) - gi(b.category) || byRank(a, b)).map(b =>
       <BountyRow key={b.id + b.value + b.active} b={b}
         name={`#${d.bl[b.target_id]?.pro_rank ?? '–'} ${nick(b.target_id)}`}
@@ -89,20 +99,25 @@ export function AdminPanel({ d, team, nick, act, part, onPart, active, free, rev
   </>
 }
 
-function RegisterWin({ board, active, nick, act }) {
-  const [h, setH] = useState(''), [b, setB] = useState(''), [day, setDay] = useState(todayLocal())
+function RegisterWin({ board, active, nick, act, tours, me }) {
+  const now = Date.now()
+  const recent = tours.filter(t => new Date(t.starts_at) <= now + 864e5 && now - new Date(t.starts_at) < 30 * 864e5).slice().reverse()
+  const [h, setH] = useState(''), [b, setB] = useState(''), [t, setT] = useState('')
   return (
     <div className="row">
       <select value={h} onChange={e => setH(e.target.value)}>
         <option value="">Chi ha vinto…</option>
-        {board.map(r => <option key={r.blader_id} value={r.blader_id}>{r.nickname}</option>)}
+        {board.filter(r => r.blader_id !== me).map(r => <option key={r.blader_id} value={r.blader_id}>{r.nickname}</option>)}
       </select>
       <select value={b} onChange={e => setB(e.target.value)}>
         <option value="">Taglia battuta…</option>
-        {active.map(x => <option key={x.id} value={x.id}>{nick(x.target_id)} ({x.value} pt)</option>)}
+        {active.filter(x => x.target_id !== h && x.target_id !== me).map(x => <option key={x.id} value={x.id}>{nick(x.target_id)} ({x.value} pt)</option>)}
       </select>
-      <input type="date" value={day} max={todayLocal()} onChange={e => setDay(e.target.value)} />
-      <button disabled={!h || !b} onClick={() => act('admin_register_claim', { p_bounty: b, p_hunter: h, p_played_on: day }).then(ok => { if (ok) { setB(''); toast('Vittoria registrata', { kind: 'ok' }) } })}>Registra</button>
+      <select value={t} onChange={e => setT(e.target.value)}>
+        <option value="">In quale ranked…</option>
+        {recent.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+      </select>
+      <button disabled={!h || !b || !t} onClick={() => act('admin_register_claim', { p_bounty: b, p_hunter: h, p_tournament: t }).then(ok => { if (ok) { setB(''); toast('Vittoria registrata', { kind: 'ok' }) } })}>Registra</button>
     </div>
   )
 }
@@ -131,7 +146,9 @@ function BountyRow({ b, name, note, onSave, photo, onPhoto, onRemovePhoto }) {
         <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onPhoto(f) }} />
       </label>
       <span>{name}<small>{note}{photo && <> · <button type="button" className="link mini" onClick={onRemovePhoto}>togli foto</button></>}</small></span>
-      <input type="number" min="0" value={v} onChange={e => setV(+e.target.value)} />
+      {b.category === 'fox'
+        ? <span className="pts num" title="Automatico: dipende dalla posizione in classifica">{b.value}</span>
+        : <input type="number" min="0" value={v} onChange={e => setV(+e.target.value)} />}
       <label className="chk"><input type="checkbox" checked={a} onChange={e => setA(e.target.checked)} /> attiva</label>
       <button onClick={() => onSave(b.id, v, a)}>Salva</button>
     </div>

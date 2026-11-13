@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ini, positions, phaseName } from './lib'
+import { positions, phaseName } from './lib'
 import { Icon } from './icons'
+import { Avatar } from './Avatar'
 
 const WEEK = 7 * 864e5
 const RING = ['gold', 'silver', 'bronze']
@@ -51,7 +52,7 @@ export function Leaderboard({ d, me, nick, openProfile }) {
           return (
             <button type="button" key={r.blader_id} className={'pod ' + RING[r.pos - 1 > 2 ? 2 : r.pos - 1] + (r.blader_id === me ? ' me' : '')} ref={refIf(r.blader_id)}
               style={{ animationDelay: `${[90, 0, 180][i]}ms` }} onClick={() => openProfile(r.blader_id)} aria-label={`${r.pos}° ${r.nickname}, ${r.fox_points} punti`}>
-              <span className="pod-av">{ini(r.nickname)}</span>
+              <Avatar className="pod-av" url={d.avatars?.[r.blader_id]} name={r.nickname} />
               <span className="pod-name">{r.nickname}</span>
               <span className="pod-pts"><b className="num">{r.fox_points}</b><small>PT</small></span>
               <Move r={r} />
@@ -66,8 +67,8 @@ export function Leaderboard({ d, me, nick, openProfile }) {
         <button type="button" className={'row lb' + (r.blader_id === me ? ' me' : '')} key={r.blader_id} ref={refIf(r.blader_id)}
           style={{ animationDelay: `${200 + i * 40}ms` }} onClick={() => openProfile(r.blader_id)}>
           <span className="lb-pos num">{r.pos}</span>
-          <span className="av sm">{ini(r.nickname)}</span>
-          <span className="lb-name"><b>{r.nickname}</b><small>Taglie {r.bounty_points} · Ranked {r.ranked_points}</small></span>
+          <Avatar className="av sm" url={d.avatars?.[r.blader_id]} name={r.nickname} />
+          <span className="lb-name"><b>{r.nickname}</b><small>Taglie {r.bounty_points} · Ranked {r.ranked_points}{r.penalty_points ? ` · Subite ${r.penalty_points}` : ''}</small></span>
           <Move r={r} />
           <span className="lb-pts num">{r.fox_points}</span>
         </button>
@@ -78,7 +79,7 @@ export function Leaderboard({ d, me, nick, openProfile }) {
 
     {mine && !meVisible && createPortal(
       <button type="button" className="mebar" onClick={() => openProfile(me)}>
-        <span className="av sm">{ini(mine.nickname)}</span>
+        <Avatar className="av sm" url={d.avatars?.[me]} name={mine.nickname} />
         <span><b>Tu sei {mine.pos}°</b> · {mine.fox_points} pt<small>{mine.gain > 0 ? `+${mine.gain} pt questa settimana` : 'Nessun punto questa settimana'}</small></span>
         <Icon.chevron />
       </button>, document.body

@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { sb, BADGES, ini, phaseName, positions } from './lib'
+import { sb, BADGES, phaseName, positions } from './lib'
 import { Sheet, ask } from './ui'
 import { Icon } from './icons'
+import { Avatar } from './Avatar'
 import { Notifications, unsubscribeDevice } from './push'
 
 // avanzamento verso ogni traguardo: [fatto, obiettivo]
@@ -12,7 +13,7 @@ const PROGRESS = {
   g: (w, c, r) => [r.some(x => x.phase === 'winner') ? 1 : 0, 1],
 }
 
-export function Profile({ id, me, d, nick, admin, todo, goTab, back, part }) {
+export function Profile({ id, me, d, nick, admin, todo, goTab, back, part, onAvatar, removeAvatar }) {
   const [help, setHelp] = useState(false)
   const self = id === me
   const b = d.bl[id], row = d.board.find(r => r.blader_id === id)
@@ -21,12 +22,13 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part }) {
   const pos = positions(d.board)[d.board.findIndex(r => r.blader_id === id)]
   const won = d.claims.filter(c => c.hunter_id === id && c.status === 'approved')
   const pend = d.claims.filter(c => c.hunter_id === id && c.status === 'pending').length
-  const lost = d.claims.filter(c => c.target_id === id && c.status === 'approved').length
+  const lostList = d.claims.filter(c => c.target_id === id && c.status === 'approved'), lost = lostList.length
+  const penOf = c => d.led.find(l => l.source === 'penalty' && l.ref_id === c.id)?.points || 0
   const cat = c => d.bountyById[c.bounty_id]?.category
-  const manual = d.led.filter(l => l.blader_id === id && l.source !== 'bounty' && l.source !== 'ranked').reduce((s, l) => s + l.points, 0)
+  const manual = d.led.filter(l => l.blader_id === id && !['bounty', 'ranked', 'penalty'].includes(l.source)).reduce((s, l) => s + l.points, 0)
   let tot = 0
   const pts = d.led.filter(l => l.blader_id === id)
-    .map(l => ({ t: (l.source === 'bounty' && d.claimById[l.ref_id]?.played_on)
+    .map(l => ({ t: ((l.source === 'bounty' || l.source === 'penalty') && d.claimById[l.ref_id]?.played_on)
       || (l.source === 'ranked' && tour(d.entryById[l.ref_id]?.tournament_id)?.starts_at?.slice(0, 10))
       || l.created_at.slice(0, 10), p: l.points }))
     .sort((a, z) => a.t.localeCompare(z.t))
@@ -34,6 +36,7 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part }) {
   const rk = d.entries.filter(e => e.blader_id === id && e.status === 'approved')
     .sort((a, z) => (tour(z.tournament_id)?.starts_at || '').localeCompare(tour(a.tournament_id)?.starts_at || ''))
   const parts = [['Taglie', row.bounty_points, 'b'], ['Ranked', row.ranked_points, 'r'], ['Correzioni', manual, 'm']].filter(p => p[1] > 0)
+  const lostPts = row.penalty_points || 0
   const sum = parts.reduce((s, p) => s + p[1], 0) || 1
 
   async function logout() { if (await ask({ title: 'Vuoi uscire?', text: 'Per rientrare ti serviranno email e password. Su questo telefono smetteranno di arrivare le notifiche.', ok: 'Esci' })) { await unsubscribeDevice(); sb.auth.signOut() } }
@@ -41,7 +44,13 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part }) {
   return <>
     {!self && <button type="button" className="back" onClick={back}><Icon.back width="18" height="18" /> Classifica</button>}
     <div className="player">
-      <span className="av xl">{ini(b.nickname)}</span>
+      {self
+        ? <label className="avatar-edit" title="Cambia foto profilo">
+            <Avatar className="av xl" url={d.avatars?.[id]} name={b.nickname} />
+            <span className="avatar-badge" aria-hidden="true"><Icon.camera width="15" height="15" /></span>
+            <input type="file" accept="image/*" className="sr-only" aria-label="Cambia foto profilo" onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onAvatar(f) }} />
+          </label>
+        : <Avatar className="av xl" url={d.avatars?.[id]} name={b.nickname} />}
       <div className="player-id">
         <h2 className="player-name">{b.nickname}</h2>
         <small>{pos}° Fox Point{b.pro_rank ? ` · #${b.pro_rank} PBI` : ''}</small>
@@ -49,7 +58,8 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part }) {
       <div className="player-pts"><b className="num">{row.fox_points}</b><small>Fox Point</small></div>
       {parts.length > 0 && <>
         <div className="split" aria-hidden="true">{parts.map(p => <span key={p[2]} className={'split-' + p[2]} style={{ flexGrow: p[1] / sum }} />)}</div>
-        <div className="split-legend">{parts.map(p => <span key={p[2]}><i className={'split-' + p[2]} />{p[0]} <b>{p[1]}</b></span>)}</div>
+        <div className="split-legend">{parts.map(p => <span key={p[2]}><i className={'split-' + p[2]} />{p[0]} <b>{p[1]}</b></span>)}
+          {lostPts < 0 && <span className="lost">Taglie subite <b>{lostPts}</b></span>}</div>
       </>}
     </div>
 
@@ -85,6 +95,15 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part }) {
         <span className="pts num">+{e.total_pts}</span>
       </div>
     ))}
+    {lostList.length > 0 && <>
+      <h2>Taglie subite</h2>
+      {lostList.map(c => (
+        <div className="row" key={c.id}>
+          <span>Battuto da <b>{nick(c.hunter_id)}</b><small>{d.tourById[c.tournament_id]?.name || c.played_on}</small></span>
+          <span className="pts num minus">{penOf(c) || '–'}</span>
+        </div>
+      ))}
+    </>}
     <h2>Taglie riscosse</h2>
     {!won.length && <div className="empty">{self ? <>Nessuna taglia riscossa. <button type="button" className="link" onClick={() => goTab('bounty')}>Vedi i ricercati</button></> : 'Nessuna taglia riscossa finora.'}</div>}
     {won.map(c => (
@@ -98,6 +117,7 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part }) {
       <h2>Impostazioni</h2>
       <div className="menu">
         {admin && <button type="button" onClick={() => goTab('admin')}><Icon.shield /><span>Pannello admin</span>{todo > 0 && <em className="dot">{todo}</em>}<Icon.chevron /></button>}
+        {d.avatars?.[me] && <button type="button" onClick={removeAvatar}><Icon.user /><span>Togli la foto profilo</span></button>}
         <Notifications me={me} admin={admin} />
         <button type="button" onClick={() => setHelp(true)}><Icon.help /><span>Come funzionano i punti</span><Icon.chevron /></button>
         <button type="button" onClick={logout}><Icon.logout /><span>Esci</span></button>
@@ -113,7 +133,8 @@ function Help({ part, onClose }) {
       <h2 className="sheet-title">Come funzionano i punti</h2>
       <div className="help">
         <p><b>Fox Point</b> = punti delle taglie + punti delle ranked. La classifica del team è la somma.</p>
-        <p><b>Taglie.</b> Ogni ricercato ha un valore. Se lo batti, dichiaralo dal suo manifesto: quando un admin conferma, prendi i punti. Le taglie della Top 10 PBI valgono in base alla posizione e si aggiornano da sole ogni mattina.</p>
+        <p><b>Taglie.</b> Ogni ricercato ha un valore. Valgono solo le vittorie <b>in una ranked</b>: dichiarale dal manifesto scegliendo la ranked. Su ogni giocatore, dopo una riscossione, si salta una settimana. Le taglie della Top 10 PBI valgono in base alla posizione e si aggiornano da sole ogni mattina.</p>
+        <p><b>Fox Blader.</b> Anche tra di noi c'è una taglia: vale in base alla posizione Fox Point di chi viene battuto (1° 60, 2° 50, 3° 40, 4°-5° 30, poi 20) e chi perde perde metà del valore, mai sotto zero. La vittoria la conferma chi è stato battuto; se dice che non è vero, decide un admin.</p>
         <p><b>Ranked.</b> Ogni ranked PBI giocata vale <b>+{part}</b> di partecipazione, più i punti ufficiali PBI del piazzamento (bonus qualified compreso). Premi "Partecipo" prima, poi a fine torneo inserisci il piazzamento in "Com'è andata?".</p>
         <p><b>Frecce ▲▼.</b> Quante posizioni hai guadagnato o perso negli ultimi 7 giorni.</p>
       </div>

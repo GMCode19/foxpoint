@@ -45,3 +45,10 @@ test('posizione senza valore impostato: valore lasciato com\'è', () => {
 test('capi team e rilevanti fuori dalla top 10 non vengono toccati', () => {
   assert.deepEqual(plan([B('mimmo', 'capo', 50), B('dark', 'rilevante', 60, false)], { mimmo: 103, dark: 30 }, { mimmo: 98, dark: 25 }), [])
 })
+
+test('Fox Blader entra in top 10 PBI: prende la taglia Top 10 e quando esce torna Fox col suo valore', () => {
+  const [enter] = plan([B('marco', 'fox', 30)], { marco: 12 }, { marco: 9 })
+  assert.deepEqual(enter, { id: 'b-marco', target_id: 'marco', category: 'top10', prev_category: 'fox', prev_value: 30, value: 100 })
+  const [leave] = plan([B('marco', 'top10', 100, true, { prev_category: 'fox', prev_value: 30 })], { marco: 9 }, { marco: 14 })
+  assert.deepEqual(leave, { id: 'b-marco', target_id: 'marco', category: 'fox', value: 30, prev_category: null, prev_value: null })
+})
