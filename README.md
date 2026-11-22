@@ -33,6 +33,7 @@ Da eseguire nel SQL Editor di Supabase:
 - Taglie Top 10 legate alla posizione: `08_taglie_posizione`.
 - Aggiornamenti in tempo reale e notifiche: `09_notifiche` e `10_notifiche_chiave`, poi la funzione `supabase/functions/push/index.ts` creata in Supabase (Edge Functions) con nome `push` e "Verify JWT" disattivato.
 - Taglie tra Fox Blader, regole delle taglie (solo ranked, settimana di pausa) e foto profilo: `11_taglie_fox_avatar`.
+- Revisione di sicurezza (funzioni interne chiuse, niente funzioni per chi non ha fatto l'accesso, foto profilo solo per il team): `12_sicurezza`.
 
 ## Avviso
 Progetto interno e non ufficiale dei Lake Fox, senza legami con Pro Bladers Italia o con i titolari del marchio Beyblade.
