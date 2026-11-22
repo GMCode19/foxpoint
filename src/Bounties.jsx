@@ -3,6 +3,7 @@ import { GROUPS, ini, positions, foxValue, weekStart, fmtDate } from './lib'
 import { Sheet, toast } from './ui'
 import { Icon } from './icons'
 import { shareStory } from './share'
+import { Launcher, Countdown, stillMotion } from './Launcher'
 import { ago } from './Leaderboard'
 
 const STATUS = { pending: 'in attesa', disputed: 'contestata', approved: 'riscossa', rejected: 'rifiutata', revoked: 'revocata' }
@@ -108,15 +109,22 @@ function Wanted({ b, d, me, nick, status, photo, claim, member, onClose }) {
   const recent = d.tours.filter(t => new Date(t.starts_at) <= now + 864e5 && now - new Date(t.starts_at) < 30 * 864e5).slice().reverse()
     .map(t => ({ ...t, free: !blocked.has(weekStart(t.starts_at)), went: d.entries.some(e => e.tournament_id === t.id && e.blader_id === me) }))
   const best = recent.find(t => t.free && t.went) || recent.find(t => t.free)
-  const [tid, setTid] = useState(best?.id || ''), [busy, setBusy] = useState(false)
+  const [tid, setTid] = useState(best?.id || ''), [busy, setBusy] = useState(false), [count, setCount] = useState(false)
   const chosen = recent.find(t => t.id === tid)
   // penalità per chi perde (se è un Fox Blader): metà del valore della sua posizione
   const pos = positions(d.board)[d.board.findIndex(r => r.blader_id === b.target_id)]
   const penalty = member && pos ? foxValue(pos) / 2 : 0
 
+  // il conto alla rovescia gira mentre la dichiarazione viene salvata; se non va a buon fine si ferma subito
   async function go() {
+    if (busy || !chosen?.free) return
     setBusy(true)
+    const still = stillMotion()
+    if (!still) setCount(true)
+    const wait = new Promise(r => setTimeout(r, still ? 0 : 2500))
     const ok = await claim(b, tid)
+    if (ok) await wait
+    setCount(false)
     setBusy(false)
     if (ok) { onClose(); toast(`Vittoria su ${name} inviata · ${member ? `deve confermare ${name}` : 'in attesa di un admin'}`, { kind: 'ok' }) }
   }
@@ -144,17 +152,19 @@ function Wanted({ b, d, me, nick, status, photo, claim, member, onClose }) {
             <span>In quale ranked?</span>
             <select value={tid} onChange={e => setTid(e.target.value)}>
               {!recent.length && <option value="">Nessuna ranked negli ultimi 30 giorni</option>}
+              {recent.length > 0 && !best && <option value="">Tutte in settimana di pausa</option>}
               {recent.map(t => <option key={t.id} value={t.id} disabled={!t.free}>{t.name} · {fmtDate(t.starts_at)}{t.free ? '' : ' (settimana di pausa)'}</option>)}
             </select>
           </label>
           <p className="sheet-note">Vale solo una vittoria in ranked. Su ogni giocatore si salta una settimana dopo una riscossione.
             {member ? ` Conferma ${name}; se non è d'accordo decide un admin.` : ' Conferma un admin.'}</p>
         </>}
-      <div className="sheet-actions">
+      {(status === 'approved' || !canClaim) && <div className="sheet-actions">
         {status === 'approved' && <button type="button" className="ghost" onClick={share}><Icon.share width="18" height="18" /> Condividi</button>}
-        {canClaim && <button type="button" disabled={busy || !chosen?.free} onClick={go}>{status === 'approved' ? 'L\'ho battuto di nuovo' : 'L\'ho battuto'}</button>}
         {!canClaim && <button type="button" className="ghost" onClick={onClose}>Chiudi</button>}
-      </div>
+      </div>}
+      {canClaim && <Launcher name={name} disabled={busy || !chosen?.free} onLaunch={go} />}
+      {count && <Countdown name={name} />}
     </Sheet>
   )
 }

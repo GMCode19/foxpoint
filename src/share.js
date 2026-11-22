@@ -17,10 +17,11 @@ async function draw({ photo, name, value, hunter, team }, withPhoto) {
   c.width = W; c.height = H
   const g = c.getContext('2d')
   const bg = g.createRadialGradient(W / 2, 260, 40, W / 2, 400, 1300)
-  bg.addColorStop(0, '#3a1d70'); bg.addColorStop(1, '#0b0810')
+  bg.addColorStop(0, '#2A2148'); bg.addColorStop(1, '#121116')
   g.fillStyle = bg; g.fillRect(0, 0, W, H)
-  try { await document.fonts.load('800 120px "Barlow Condensed"') } catch { /* carattere di riserva */ }
-  const F = (w, s) => `${w} ${s}px "Barlow Condensed", Impact, "Arial Black", sans-serif`
+  try { await document.fonts.load('800 120px "Saira Variable"') } catch { /* carattere di riserva */ }
+  if ('fontStretch' in g) g.fontStretch = 'condensed'
+  const F = (w, s) => `${w} ${s}px "Saira Variable", Impact, "Arial Black", sans-serif`
 
   try { const l = await img(LOGO); const h = 150, w = l.width * h / l.height; g.globalCompositeOperation = 'lighten'; g.drawImage(l, (W - w) / 2, 110, w, h); g.globalCompositeOperation = 'source-over' } catch { /* senza logo */ }
   g.textAlign = 'center'; g.fillStyle = '#b99be8'; g.font = F(700, 54)

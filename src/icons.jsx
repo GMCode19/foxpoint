@@ -16,4 +16,9 @@ export const Icon = {
   share: p => <svg {...P} {...p}><path d="M12 3v13M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>,
   camera: p => <svg {...P} {...p}><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>,
   wifiOff: p => <svg {...P} {...p}><path d="M2 8.8a15 15 0 0 1 4.2-2.6M22 8.8A15 15 0 0 0 10.7 5M5 12.6a10 10 0 0 1 4-2.2M19 12.6a10 10 0 0 0-2.3-1.5M8.5 16.3a5 5 0 0 1 7 0M12 20h.01M3 3l18 18" /></svg>,
+  podium: p => <svg {...P} {...p}><path d="M3 20h18M5 20v-6h4v6M10 20V8h4v12M15 20v-9h4v9" /></svg>,
+  crosshair: p => <svg {...P} {...p}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="2.5" /><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5" /></svg>,
+  stadium: p => <svg {...P} {...p}><circle cx="12" cy="12" r="9" /><path d="M7.5 7.5l9 9M16.5 7.5l-9 9" /></svg>,
+  card: p => <svg {...P} {...p}><path d="M8 3h11v15l-3 3H5V6z" /><circle cx="12" cy="10" r="3" /><path d="M8.5 16.5h7" /></svg>,
+  flip: p => <svg {...P} {...p}><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M3 21v-5h5" /></svg>,
 }

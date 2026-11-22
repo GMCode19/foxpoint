@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { sb, BADGES, phaseName, positions } from './lib'
 import { Sheet, ask } from './ui'
 import { Icon } from './icons'
-import { Avatar } from './Avatar'
+import { TradingCard } from './Card'
 import { Notifications, unsubscribeDevice } from './push'
 
 // avanzamento verso ogni traguardo: [fatto, obiettivo]
@@ -37,37 +37,13 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part, onAva
     .sort((a, z) => (tour(z.tournament_id)?.starts_at || '').localeCompare(tour(a.tournament_id)?.starts_at || ''))
   const parts = [['Taglie', row.bounty_points, 'b'], ['Ranked', row.ranked_points, 'r'], ['Correzioni', manual, 'm']].filter(p => p[1] > 0)
   const lostPts = row.penalty_points || 0
-  const sum = parts.reduce((s, p) => s + p[1], 0) || 1
 
   async function logout() { if (await ask({ title: 'Vuoi uscire?', text: 'Per rientrare ti serviranno email e password. Su questo telefono smetteranno di arrivare le notifiche.', ok: 'Esci' })) { await unsubscribeDevice(); sb.auth.signOut() } }
 
   return <>
     {!self && <button type="button" className="back" onClick={back}><Icon.back width="18" height="18" /> Classifica</button>}
-    <div className="player">
-      {self
-        ? <label className="avatar-edit" title="Cambia foto profilo">
-            <Avatar className="av xl" url={d.avatars?.[id]} name={b.nickname} />
-            <span className="avatar-badge" aria-hidden="true"><Icon.camera width="15" height="15" /></span>
-            <input type="file" accept="image/*" className="sr-only" aria-label="Cambia foto profilo" onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onAvatar(f) }} />
-          </label>
-        : <Avatar className="av xl" url={d.avatars?.[id]} name={b.nickname} />}
-      <div className="player-id">
-        <h2 className="player-name">{b.nickname}</h2>
-        <small>{pos}° Fox Point{b.pro_rank ? ` · #${b.pro_rank} PBI` : ''}</small>
-      </div>
-      <div className="player-pts"><b className="num">{row.fox_points}</b><small>Fox Point</small></div>
-      {parts.length > 0 && <>
-        <div className="split" aria-hidden="true">{parts.map(p => <span key={p[2]} className={'split-' + p[2]} style={{ flexGrow: p[1] / sum }} />)}</div>
-        <div className="split-legend">{parts.map(p => <span key={p[2]}><i className={'split-' + p[2]} />{p[0]} <b>{p[1]}</b></span>)}
-          {lostPts < 0 && <span className="lost">Taglie subite <b>{lostPts}</b></span>}</div>
-      </>}
-    </div>
-
-    <div className="stats">
-      <div><b className="num">{won.length}</b><small>Taglie riscosse{pend ? ` (+${pend} in attesa)` : ''}</small></div>
-      <div><b className="num">{rk.length}</b><small>Ranked giocate</small></div>
-      <div><b className="num">{lost}</b><small>Taglie subite</small></div>
-    </div>
+    <TradingCard name={b.nickname} pos={pos} total={row.fox_points} avatar={d.avatars?.[id]} won={won.length} pend={pend} lost={lost}
+      ranked={rk} parts={parts} lostPts={lostPts} self={self} onAvatar={onAvatar} />
 
     <h2>Andamento punti</h2>
     <LineChart pts={pts} self={self} />
