@@ -51,7 +51,7 @@ export function TradingCard({ name, pos, total, avatar, won, pend, lost, ranked,
   return <>
     <div className={'tcard-stage ' + tier + (live ? ' live' : '')} ref={el}
       onPointerMove={e => { if (e.pointerType === 'touch' && !e.isPrimary) return; const r = e.currentTarget.getBoundingClientRect(); setLive(true); set((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height) }}
-      onPointerLeave={rest}>
+      onPointerLeave={rest} onPointerCancel={rest}>
       <div className={'tcard' + (back ? ' back' : '')}>
         <div className="tcard-face front" aria-hidden={back}>
           <div className="tcard-in">

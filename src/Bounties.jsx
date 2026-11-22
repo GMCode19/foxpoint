@@ -116,8 +116,10 @@ function Wanted({ b, d, me, nick, status, photo, claim, member, onClose }) {
   const penalty = member && pos ? foxValue(pos) / 2 : 0
 
   // il conto alla rovescia gira mentre la dichiarazione viene salvata; se non va a buon fine si ferma subito
+  const sending = useRef(false)   // blocca i tocchi ripetuti prima che lo stato si aggiorni
   async function go() {
-    if (busy || !chosen?.free) return
+    if (sending.current || !chosen?.free) return
+    sending.current = true
     setBusy(true)
     const still = stillMotion()
     if (!still) setCount(true)
@@ -126,6 +128,7 @@ function Wanted({ b, d, me, nick, status, photo, claim, member, onClose }) {
     if (ok) await wait
     setCount(false)
     setBusy(false)
+    sending.current = false
     if (ok) { onClose(); toast(`Vittoria su ${name} inviata · ${member ? `deve confermare ${name}` : 'in attesa di un admin'}`, { kind: 'ok' }) }
   }
   async function share() {
@@ -134,7 +137,7 @@ function Wanted({ b, d, me, nick, status, photo, claim, member, onClose }) {
   }
   const canClaim = !self && status !== 'pending'
   return (
-    <Sheet onClose={onClose} label={`Ricercato ${name}`}>
+    <Sheet onClose={() => { if (!sending.current) onClose() }} label={`Ricercato ${name}`}>
       <div className="wanted">
         <div className="wanted-photo">{photo ? <img src={photo} alt={`Foto di ${name}`} /> : <span>{ini(name)}</span>}</div>
         <div className="wanted-info">
