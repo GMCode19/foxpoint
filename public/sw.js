@@ -1,7 +1,7 @@
 // Fox Point - service worker
 // 1) notifiche: le mostra e, al tocco, apre l'app nella sezione giusta
 // 2) apertura senza rete: tiene una copia dell'app (la pagina si aggiorna sempre dalla rete quando c'è)
-const CACHE = 'fx-app-v2'
+const CACHE = 'fx-app-v3'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', e => e.waitUntil((async () => {
