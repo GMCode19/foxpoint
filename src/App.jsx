@@ -243,7 +243,7 @@ function Team({ m }) {
     toast('Foto profilo tolta'); await load()
   }
 
-  const tabs = [['rank', 'Classifica', Icon.podium], ['bounty', 'Taglie', Icon.crosshair], ['ranked', 'Ranked', Icon.stadium], ['profile', 'Profilo', Icon.card]]
+  const tabs = [['rank', 'Classifica', Icon.podium], ['bounty', 'Taglie', Icon.crosshair], ['ranked', 'Ranked', Icon.trophy], ['profile', 'Profilo', Icon.card]]
   const navOn = tab === 'admin' ? 'profile' : tab
   return (
     <div className="wrap app">
