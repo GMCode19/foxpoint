@@ -21,9 +21,28 @@ test('nuovo in top 10 (taglia appena creata a 0, non attiva): prende il valore e
   assert.deepEqual(plan([B('nuovo', 'top10', 0, false)], {}, { nuovo: 7 }), [{ id: 'b-nuovo', target_id: 'nuovo', value: 100, active: true }])
 })
 
-test('chi esce dalla top 10 viene disattivato, valore invariato', () => {
-  assert.deepEqual(plan([B('aes', 'top10', 100)], { aes: 9 }, { aes: 14 }), [{ id: 'b-aes', target_id: 'aes', active: false }])
-  assert.deepEqual(plan([B('aes', 'top10', 100)], { aes: 9 }, {}), [{ id: 'b-aes', target_id: 'aes', active: false }], 'sparito dalla classifica')
+test('chi esce dalla top 10 diventa Blader rilevante col valore più usato tra i rilevanti', () => {
+  const ril = [B('d1', 'rilevante', 40), B('d2', 'rilevante', 40), B('d3', 'rilevante', 60), B('d4', 'rilevante', 0, false)]
+  const out = { id: 'b-aes', target_id: 'aes', category: 'rilevante', value: 40, active: true }
+  assert.deepEqual(plan([B('aes', 'top10', 100), ...ril], { aes: 9 }, { aes: 14 }), [out])
+  assert.deepEqual(plan([B('aes', 'top10', 100), ...ril], { aes: 9 }, {}), [out], 'sparito dalla classifica')
+})
+
+test('uscito dalla top 10 senza rilevanti con un valore: diventa rilevante e tiene il suo valore', () => {
+  assert.deepEqual(plan([B('aes', 'top10', 100)], { aes: 9 }, { aes: 11 }), [{ id: 'b-aes', target_id: 'aes', category: 'rilevante', value: 100, active: true }])
+  assert.deepEqual(plan([B('z', 'top10', 0, false)], { z: 10 }, { z: 12 }), [{ id: 'b-z', target_id: 'z', category: 'rilevante', value: 0, active: false }], 'valore 0: resta disattivata')
+})
+
+test('taglia Top 10 rimasta su chi era già fuori (come AeS e Burstati): sistemata al primo aggiornamento', () => {
+  assert.deepEqual(plan([B('bsg', 'top10', 100, false), B('d1', 'rilevante', 40)], { bsg: 12 }, { bsg: 12 }),
+    [{ id: 'b-bsg', target_id: 'bsg', category: 'rilevante', value: 40, active: true }])
+})
+
+test('superstar e capi team che entrano e poi escono dalla top 10 tornano nella loro categoria', () => {
+  const [enter] = plan([B('s', 'superstar', 70)], { s: 15 }, { s: 8 })
+  assert.equal(enter.category, 'top10'); assert.equal(enter.prev_category, 'superstar')
+  const [leave] = plan([B('s', 'top10', 100, true, { prev_category: 'superstar', prev_value: 70 }), B('d1', 'rilevante', 40)], { s: 8 }, { s: 13 })
+  assert.deepEqual(leave, { id: 'b-s', target_id: 's', category: 'superstar', value: 70, prev_category: null, prev_value: null })
 })
 
 test("l'admin ha disattivato uno della top 10: resta disattivato", () => {

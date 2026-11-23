@@ -1,16 +1,40 @@
 -- ============================================================
 -- Fox Point · 13 · Nuove categorie (Top 10, Blader rilevanti, Capi team, Superstar, Fox Blader)
---                  e nuovi ricercati (lista del 23 novembre 2026)
--- Da eseguire UNA volta nell'SQL Editor di Supabase. Si può rieseguire senza danni.
+--                  e nuovi ricercati (lista del 23 novembre 2026, nomi confermati alle 19:00)
+-- Da eseguire nell'SQL Editor di Supabase. Si può rieseguire senza danni,
+-- anche se avevi già eseguito la versione precedente di questo script.
 --
 -- Nickname scritti come sulla classifica PBI del 23/11/2026, così l'aggiornamento automatico li riconosce.
 -- Chi è già presente viene solo spostato di categoria (valore e attivazione restano quelli decisi dagli admin).
 -- I nuovi ricevono il valore più usato nella loro categoria; se la categoria non ha ancora valori, 0 e non attivi.
+-- I nomi confermati: WB_leovv (cLeoVv), Vysor90 (Vysor), MSD_KingBruce (SDLMN_kingbruce).
 -- I Top 10 restano gestiti in automatico dalla classifica PBI; i Fox Blader (membri) non vengono toccati.
 -- ============================================================
 
 alter table bounties drop constraint if exists bounties_category_check;
 alter table bounties add constraint bounties_category_check check (category in ('top10','rilevante','capo','superstar','fox'));
+
+-- Samuryan = BelthazorHell: ai tornei usa Samuryan, su PBI è registrato come BelthazorHell (come Fourteenkay/Krsto14).
+-- Xyber9: per ora no (forse non ha ancora fatto ranked).
+-- Se la versione precedente li aveva creati come blader nuovi, vengono tolti (solo se non hanno storico).
+create or replace function pg_temp.togli_se_vuoto(p_nick text) returns void language sql as $$
+  delete from bounties b using bladers bl
+   where b.target_id = bl.id and bl.nickname = p_nick and bl.user_id is null and bl.pbi_nickname is null
+     and not exists (select 1 from claims c where c.bounty_id = b.id or c.target_id = bl.id or c.hunter_id = bl.id)
+     and not exists (select 1 from points_ledger l where l.blader_id = bl.id)
+     and not exists (select 1 from tournament_entries e where e.blader_id = bl.id);
+  delete from bladers bl
+   where bl.nickname = p_nick and bl.user_id is null and bl.pbi_nickname is null
+     and not exists (select 1 from bounties b where b.target_id = bl.id)
+     and not exists (select 1 from claims c where c.target_id = bl.id or c.hunter_id = bl.id or c.decided_by = bl.id)
+     and not exists (select 1 from points_ledger l where l.blader_id = bl.id)
+     and not exists (select 1 from tournament_entries e where e.blader_id = bl.id or e.decided_by = bl.id)
+     and not exists (select 1 from team_members m where m.blader_id = bl.id);
+$$;
+select pg_temp.togli_se_vuoto('Xyber9');
+select pg_temp.togli_se_vuoto('Samuryan') where exists (select 1 from bladers where lower(nickname) = 'belthazorhell');
+update bladers set nickname = 'Samuryan', pbi_nickname = 'BelthazorHell'
+ where lower(nickname) = 'belthazorhell' and not exists (select 1 from bladers where nickname = 'Samuryan');
 
 drop table if exists pg_temp.lista, pg_temp.esito;
 create temp table lista (nick text, cat text, rank int, alias text);
@@ -31,9 +55,9 @@ insert into lista values
   ('AstroBonny', 'capo', 346, null), ('Vysor90', 'capo', 206, 'Vysor'), ('AHJIN_Lykanos96', 'capo', 815, null),
   ('SDM_Thzio', 'capo', 184, null), ('Zeta90', 'capo', 32, null), ('BladerWWE', 'capo', 145, null),
   ('ilsorre_tv', 'capo', 156, null), ('WB_Tony_Peanuts', 'capo', 187, null), ('Tommo666', 'capo', 68, null),
-  ('Xyber9', 'capo', null, null), ('Kai_Hiwatari', 'capo', 245, null), ('Pod81', 'capo', 117, null), ('Tsuner', 'capo', 189, null),
+  ('Kai_Hiwatari', 'capo', 245, null), ('Pod81', 'capo', 117, null), ('Tsuner', 'capo', 189, null),
   -- Superstar
-  ('Samuryan', 'superstar', null, null), ('MimmoTrottola', 'superstar', 40, 'Mimmo trottola'),
+  ('Samuryan', 'superstar', 182, 'BelthazorHell'), ('MimmoTrottola', 'superstar', 40, 'Mimmo trottola'),
   ('lucadekuma', 'superstar', 66, 'Lukadekuma'), ('XBulgariCultBistrotX', 'superstar', 27, 'Bulgari'),
   ('Canzianylla', 'superstar', 141, 'Canzyanilla');
 
