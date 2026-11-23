@@ -48,12 +48,12 @@ insert into lista values
   ('WB_S3BASCO', 'rilevante', 23, 'Wb_sebasco'), ('WB_leovv', 'rilevante', 20, 'cLeoVv'), ('Disagiati', 'rilevante', 69, null),
   ('Ele01', 'rilevante', 58, null), ('MSD_KingBruce', 'rilevante', 298, 'SDLMN_kingbruce'), ('WB_BAKI', 'rilevante', 37, 'Wb_baki'),
   ('Gianlu_Z', 'rilevante', 47, 'gianluZ'), ('DC_Ernesto_Fiammata', 'rilevante', 22, 'Ernesto fiammata'),
-  ('AHJIN_ItsRio', 'rilevante', 38, null), ('LanceDeeVine', 'rilevante', 147, 'Lanceedevine'),
+  ('AHJIN_ItsRio', 'rilevante', 38, null), ('LanceDeeVine', 'rilevante', 147, 'Lanceedevine'), ('Zeta90', 'rilevante', 32, null),
   -- Capi team
   ('RomGattoNero', 'capo', 42, null), ('Zio_fred', 'capo', 36, null), ('DC_Danzika7', 'capo', 310, null),
   ('ImCount', 'capo', 824, null), ('MADB_ChefBobo', 'capo', 190, null), ('MADB_SirBrus22', 'capo', 101, null),
   ('AstroBonny', 'capo', 346, null), ('Vysor90', 'capo', 206, 'Vysor'), ('AHJIN_Lykanos96', 'capo', 815, null),
-  ('SDM_Thzio', 'capo', 184, null), ('Zeta90', 'capo', 32, null), ('BladerWWE', 'capo', 145, null),
+  ('SDM_Thzio', 'capo', 184, null), ('BladerWWE', 'capo', 145, null),
   ('ilsorre_tv', 'capo', 156, null), ('WB_Tony_Peanuts', 'capo', 187, null), ('Tommo666', 'capo', 68, null),
   ('Kai_Hiwatari', 'capo', 245, null), ('Pod81', 'capo', 117, null), ('Tsuner', 'capo', 189, null),
   -- Superstar
