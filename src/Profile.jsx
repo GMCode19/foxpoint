@@ -8,7 +8,7 @@ import { Notifications, unsubscribeDevice } from './push'
 // avanzamento verso ogni traguardo: [fatto, obiettivo]
 const PROGRESS = {
   a: w => [Math.min(w.length, 1), 1], b: w => [Math.min(w.length, 5), 5],
-  c: (w, c) => [w.some(x => c(x) === 'top10') ? 1 : 0, 1], d: (w, c) => [w.some(x => c(x) === 'capo') ? 1 : 0, 1],
+  c: (w, c) => [w.some(x => c(x) === 'top10') ? 1 : 0, 1], d: (w, c) => [w.some(x => ['capo', 'superstar'].includes(c(x))) ? 1 : 0, 1],
   e: (w, c, r) => [Math.min(r.length, 1), 1], f: (w, c, r) => [r.some(x => ['winner', 'final', 'sf'].includes(x.phase)) ? 1 : 0, 1],
   g: (w, c, r) => [r.some(x => x.phase === 'winner') ? 1 : 0, 1],
 }

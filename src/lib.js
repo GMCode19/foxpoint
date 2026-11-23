@@ -3,7 +3,7 @@ import { supabase as sb } from './supabase'
 import { toast } from './ui'
 
 export { sb }
-export const GROUPS = [['top10', 'Top 10'], ['rilevante', 'Blader rilevanti'], ['capo', 'Capi team e creator'], ['fox', 'Fox Blader']]
+export const GROUPS = [['top10', 'Top 10'], ['rilevante', 'Blader rilevanti'], ['capo', 'Capi team'], ['superstar', 'Superstar'], ['fox', 'Fox Blader']]
 export const AVATAR_BUCKET = 'avatar'
 export const MEDAL = ['🥇', '🥈', '🥉']
 export const PODIUM = ['winner', 'final', 'sf']
@@ -13,7 +13,7 @@ export const BADGES = [
   { k: 'a', i: '🎯', n: 'Prima taglia', d: 'Riscuoti la prima taglia', ok: w => w.length >= 1 },
   { k: 'b', i: '🔥', n: 'Cacciatore', d: '5 taglie riscosse', ok: w => w.length >= 5 },
   { k: 'c', i: '👑', n: 'Cacciatore di Top 10', d: 'Batti un blader della top 10', ok: (w, c) => w.some(x => c(x) === 'top10') },
-  { k: 'd', i: '🦊', n: 'Colpo grosso', d: 'Batti un capo team', ok: (w, c) => w.some(x => c(x) === 'capo') },
+  { k: 'd', i: '🦊', n: 'Colpo grosso', d: 'Batti un capo team o una superstar', ok: (w, c) => w.some(x => ['capo', 'superstar'].includes(c(x))) },
   { k: 'e', i: '🎟️', n: 'Prima ranked', d: 'Gioca la prima ranked', ok: (w, c, r) => r.length >= 1 },
   { k: 'f', i: '🏅', n: 'Sul podio', d: 'Arriva almeno in semifinale in una ranked', ok: (w, c, r) => r.some(x => PODIUM.includes(x.phase)) },
   { k: 'g', i: '🏆', n: 'Campione', d: 'Vinci una ranked', ok: (w, c, r) => r.some(x => x.phase === 'winner') },
