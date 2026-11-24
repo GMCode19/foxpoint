@@ -67,7 +67,7 @@ export function Leaderboard({ d, me, nick, openProfile }) {
     <div className="list">
       {rest.map((r, i) => (
         <button type="button" className={'row lb' + (r.blader_id === me ? ' me' : '')} key={r.blader_id} ref={refIf(r.blader_id)}
-          style={{ animationDelay: `${200 + i * 40}ms` }} onClick={() => openProfile(r.blader_id)}>
+          style={{ animationDelay: `${200 + Math.min(i, 8) * 40}ms` }} onClick={() => openProfile(r.blader_id)}>
           <span className="lb-pos num">{r.pos}</span>
           <Avatar className="av sm" url={d.avatars?.[r.blader_id]} name={r.nickname} />
           <span className="lb-name"><b>{r.nickname}</b><small>Taglie {r.bounty_points} · Ranked {r.ranked_points}{r.penalty_points ? ` · Subite ${r.penalty_points}` : ''}</small></span>

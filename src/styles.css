@@ -513,3 +513,9 @@ label.btn.ghost{background:var(--card2)}
 .tour-card .tier{border-radius:0;background:linear-gradient(160deg,var(--btn2),#4A2A8C);clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));font-family:var(--display);font-stretch:62%}
 button.join{border-radius:0;clip-path:var(--para);border:0;background:var(--card2);padding:0 18px}
 button.join.on{background:var(--btn2)}
+
+/* iPhone: con molti elementi animati Safari sbagliava a disegnare la barra fissa durante lo scorrimento.
+   Le animazioni di entrata non restano "agganciate" dopo la fine, la barra ha un suo livello e niente sfocatura dietro. */
+.row,.ricercato,.tour-card,.stats>div,.hero,.view,.card,.notice,.confirm-card,.feed-item,button.pod{animation-fill-mode:backwards}
+nav.tabbar{-webkit-backdrop-filter:none;backdrop-filter:none;background:#17161C;-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
+@media(min-width:760px){nav.tabbar{-webkit-transform:translateX(-50%);transform:translateX(-50%)}}

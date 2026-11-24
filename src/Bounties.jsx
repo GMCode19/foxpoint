@@ -34,7 +34,7 @@ export function BountyBoard({ d, me, active, nick, claim, incoming, respond, isM
 
   // funzione normale (non componente): così i manifesti non vengono ricreati a ogni aggiornamento
   const card = (x, i) => (
-    <button key={x.id} type="button" className="ricercato" style={{ animationDelay: `${i * 35}ms` }} onClick={() => setOpen(x.id)}
+    <button key={x.id} type="button" className="ricercato" style={i < 8 ? { animationDelay: `${i * 35}ms` } : { animation: 'none' }} onClick={() => setOpen(x.id)}
       aria-label={`Ricercato ${nick(x.target_id)}, taglia ${x.value} punti${mine[x.id] ? ', ' + STATUS[mine[x.id]] : ''}`}>
       <span className="ricercato-head">{x.target_id === me ? 'SEI TU' : 'RICERCATO'}</span>
       <span className="ricercato-photo">
