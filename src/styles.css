@@ -674,3 +674,47 @@ button.album-entry small{font-size:.82rem;color:#CDBDF0}
 .acard.big .acard-copies{bottom:auto;top:44px;right:16px}
 /* proporzioni del manifesto già prima del caricamento: senza, l'immagine ha altezza 0 e il caricamento "pigro" non parte mai */
 .acard-poster{aspect-ratio:2/3}
+
+/* ===== olografia delle carte, in base alla rarità ===== */
+.acard-stage{--rx:0deg;--ry:0deg;--fx:50%;--fy:50%;--hyp:0;width:min(100%,250px);margin:4px auto 0;perspective:900px}
+.acard-stage.tilt{touch-action:pan-y}
+.acard-stage .acard.big{width:100%;margin:0;transform:rotateX(var(--rx)) rotateY(var(--ry));transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.acard-stage.live .acard.big{transition:transform .08s linear}
+.unlock-front .acard-stage{width:100%;height:100%;margin:0}
+.acard-holo,.acard-glitter,.acard-glare{position:absolute;inset:0;pointer-events:none}
+.acard-holo{mix-blend-mode:color-dodge;background-size:250% 250%;background-position:var(--fx,30%) var(--fy,30%)}
+.acard-glitter{display:none;mix-blend-mode:color-dodge}
+.acard-glare{display:none;mix-blend-mode:overlay;background:radial-gradient(circle at var(--fx) var(--fy),rgba(255,255,255,.55),transparent 48%);opacity:.5}
+.acard.big .acard-glare{display:block}
+.acard-stage.live .acard-glare{opacity:.9}
+/* Rara: riflesso argento semplice */
+.r-rara .acard-holo{background-image:linear-gradient(115deg,transparent 28%,rgba(255,255,255,.5) 45%,rgba(200,198,206,.35) 52%,transparent 68%);opacity:.35}
+/* Epica: bande olografiche viola-azzurre */
+.r-epica .acard-holo{background-image:repeating-linear-gradient(110deg,rgba(107,63,208,0) 0,rgba(201,168,255,.5) 5%,rgba(142,240,255,.35) 8%,rgba(107,63,208,0) 12%),linear-gradient(115deg,transparent 30%,rgba(233,216,255,.45) 50%,transparent 70%);opacity:.5}
+/* Leggendaria: lamina d'oro con brillantini */
+.r-leggendaria .acard-holo{background-image:linear-gradient(115deg,transparent 18%,rgba(255,226,154,.75) 38%,rgba(255,246,216,.9) 47%,rgba(200,144,46,.7) 56%,transparent 76%);opacity:.55}
+.r-leggendaria .acard-glitter,.r-mitica .acard-glitter{display:block;
+  background-image:radial-gradient(circle,rgba(255,246,216,.95) 0 .9px,transparent 1.5px),radial-gradient(circle,rgba(255,226,154,.8) 0 .8px,transparent 1.4px);
+  background-size:9px 9px,13px 13px;background-position:0 0,5px 7px;
+  -webkit-mask-image:radial-gradient(circle at var(--fx) var(--fy),#000 0%,transparent 55%);mask-image:radial-gradient(circle at var(--fx) var(--fy),#000 0%,transparent 55%);opacity:.75}
+/* Mitica: olografia prismatica arcobaleno, brillantini colorati e riflesso forte */
+.r-mitica .acard-holo{background-image:repeating-linear-gradient(115deg,#ff8ad8 0%,#ffe68a 6%,#8ef0ff 12%,#b38cff 18%,#ff8ad8 24%),linear-gradient(115deg,transparent 25%,rgba(255,255,255,.6) 50%,transparent 75%);background-size:320% 320%,250% 250%;opacity:.5}
+.r-mitica .acard-glitter{background-image:radial-gradient(circle,#fff 0 .9px,transparent 1.5px),radial-gradient(circle,#8ef0ff 0 .8px,transparent 1.4px),radial-gradient(circle,#ff8ad8 0 .8px,transparent 1.4px);
+  background-size:8px 8px,11px 11px,15px 15px;background-position:0 0,4px 6px,9px 3px;opacity:.9}
+.r-mitica .acard.big .acard-glare,.acard.big.r-mitica .acard-glare{opacity:.65}
+/* cornice che brilla per leggendarie e mitiche (solo sulla carta grande, è un solo elemento) */
+.acard.big.r-leggendaria,.acard.big.r-mitica{background-size:220% 220%;animation:frameshine 5s ease-in-out infinite alternate}
+@keyframes frameshine{from{background-position:0% 50%}to{background-position:100% 50%}}
+/* da fermi la luce si muove da sola, piano; col dito o inclinando segue il movimento */
+.acard-stage:not(.live) .acard.big .acard-holo{animation:holoidle 6s ease-in-out infinite alternate}
+@keyframes holoidle{from{background-position:15% 20%}to{background-position:85% 80%}}
+/* mini dell'album: olografia ferma (nessuna animazione: con decine di carte sarebbe pesante su iPhone) */
+.acard.mini .acard-holo{background-position:30% 30%;opacity:.3}
+.acard.mini.r-mitica .acard-holo{opacity:.4}
+@media(prefers-reduced-motion:reduce){.acard.big,.acard-stage .acard-holo{animation:none!important}}
+/* taratura: l'effetto non deve coprire il volto */
+.r-leggendaria .acard-holo{opacity:.34}
+.r-leggendaria .acard-glitter{opacity:.5}
+.r-mitica .acard-holo{opacity:.3;-webkit-mask-image:radial-gradient(ellipse 60% 45% at 50% 38%,rgba(0,0,0,.45),#000 80%);mask-image:radial-gradient(ellipse 60% 45% at 50% 38%,rgba(0,0,0,.45),#000 80%)}
+.r-mitica .acard-glitter{opacity:.6}
+.acard.mini.r-leggendaria .acard-holo,.acard.mini.r-mitica .acard-holo{opacity:.25}

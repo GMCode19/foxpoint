@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { sb, ini, buildAlbum, RARITIES, RARITY_LABEL, GROUPS, ALBUM_GOALS } from './lib'
 import { Sheet } from './ui'
 import { Icon } from './icons'
@@ -11,21 +11,53 @@ export const POSTER_STYLE = { width: `${100 / cw}%`, left: `${-CROP.x0 / cw * 10
 export const ART_RATIO = 1 / chOverCw   // larghezza / altezza del riquadro (circa 10:7)
 
 // immagine della carta: personaggio ritagliato dal manifesto, altrimenti foto profilo, altrimenti iniziali
+// se la foto non arriva (link scaduto, rete assente) si passa alla successiva e infine alle iniziali, mai una carta vuota
 export function CardArt({ d, target, name }) {
-  const poster = d.photos?.[target], avatar = d.avatars?.[target]
+  const [bad, setBad] = useState({})
+  const poster = !bad.p && d.photos?.[target], avatar = !bad.a && d.avatars?.[target]
   return (
     <span className="acard-art" style={{ aspectRatio: ART_RATIO }}>
       <svg className="acard-stadium" viewBox="0 0 200 150" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="100" cy="75" r="64" /><circle cx="100" cy="75" r="38" /><path d="M40 15l120 120M160 15L40 135" /></svg>
-      {poster ? <img className="acard-poster" src={poster} alt="" loading="lazy" style={POSTER_STYLE} />
-        : avatar ? <img className="acard-avatar" src={avatar} alt="" loading="lazy" />
+      {poster ? <img key="p" className="acard-poster" src={poster} alt="" loading="lazy" decoding="async" style={POSTER_STYLE} onError={() => setBad(b => ({ ...b, p: 1 }))} />
+        : avatar ? <img key="a" className="acard-avatar" src={avatar} alt="" loading="lazy" decoding="async" onError={() => setBad(b => ({ ...b, a: 1 }))} />
         : <span className="acard-ini">{ini(name)}</span>}
     </span>
   )
 }
 
+// inclinazione: col dito sulla carta e, se il telefono lo permette, inclinando il telefono (solo variabili CSS, nessun nuovo render)
+function useTilt(on) {
+  const ref = useRef(null), raf = useRef(0)
+  const set = (px, py) => {
+    cancelAnimationFrame(raf.current)
+    raf.current = requestAnimationFrame(() => {
+      const st = ref.current?.style; if (!st) return
+      st.setProperty('--rx', ((0.5 - py) * 20).toFixed(2) + 'deg'); st.setProperty('--ry', ((px - 0.5) * 24).toFixed(2) + 'deg')
+      st.setProperty('--fx', (px * 100).toFixed(1) + '%'); st.setProperty('--fy', (py * 100).toFixed(1) + '%')
+      st.setProperty('--hyp', Math.min(1, Math.hypot(px - 0.5, py - 0.5) * 2).toFixed(3))
+    })
+  }
+  useEffect(() => {
+    if (!on || !('DeviceOrientationEvent' in window)) return
+    try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return } catch { /* niente */ }
+    const h = e => { if (e.gamma == null) return; ref.current?.classList.add('live'); set(0.5 + Math.max(-30, Math.min(30, e.gamma)) / 60, 0.5 + Math.max(-30, Math.min(30, e.beta - 45)) / 60) }
+    window.addEventListener('deviceorientation', h)
+    return () => { window.removeEventListener('deviceorientation', h); cancelAnimationFrame(raf.current) }
+  }, [on])
+  if (!on) return {}
+  return {
+    ref,
+    onPointerMove: e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.classList.add('live'); set((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height) },
+    onPointerLeave: e => { e.currentTarget.classList.remove('live'); set(0.5, 0.5) },
+    onPointerCancel: e => { e.currentTarget.classList.remove('live'); set(0.5, 0.5) },
+  }
+}
+
 // carta grande (scheda della carta e animazione di sblocco)
-export function BigCard({ d, target, name, rarity, info, copies, sweep, stats = [] }) {
+export function BigCard({ d, target, name, rarity, info, copies, sweep, stats = [], tilt = false }) {
+  const t = useTilt(tilt)
   return (
+    <div className={'acard-stage' + (tilt ? ' tilt' : '')} {...t}>
     <div className={'acard big r-' + rarity}>
       <div className="acard-in">
         <div className="acard-top"><span>LAKE FOX</span><em>{RARITY_LABEL[rarity]}</em></div>
@@ -34,8 +66,12 @@ export function BigCard({ d, target, name, rarity, info, copies, sweep, stats = 
         <div className="acard-info">{info}</div>
         {stats.length > 0 && <div className="acard-stats">{stats.map(([l, v]) => <span key={l}><b>{v}</b><small>{l}</small></span>)}</div>}
         {copies > 1 && <span className="acard-copies">×{copies}</span>}
+        <span className="acard-holo" aria-hidden="true" />
+        <span className="acard-glitter" aria-hidden="true" />
         <span className={'acard-foil' + (sweep ? ' sweep' : '')} aria-hidden="true" />
+        <span className="acard-glare" aria-hidden="true" />
       </div>
+    </div>
     </div>
   )
 }
@@ -61,6 +97,7 @@ export function AlbumView({ d, who, me, nick, back }) {
           <CardArt d={d} target={s.target} name={nick(s.target)} />
           <span className="acard-mname">{nick(s.target)}</span>
           <span className="acard-mrar">{RARITY_LABEL[s.best]}</span>
+          <span className="acard-holo" aria-hidden="true" />
         </span>
         {(s.owned.length > 1 || s.copies > 1) && <span className="acard-badge">{s.owned.length > 1 ? `${s.owned.length} esp.` : `×${s.copies}`}</span>}
       </button>
@@ -104,7 +141,7 @@ function CardSheet({ d, slot, nick, onClose }) {
   const tour = last && d.tourById[last.tournament_id]
   return (
     <Sheet onClose={onClose} label={`Carta di ${nick(slot.target)}`}>
-      <BigCard d={d} target={slot.target} name={nick(slot.target)} rarity={sel} copies={list.length}
+      <BigCard d={d} target={slot.target} name={nick(slot.target)} rarity={sel} copies={list.length} tilt
         info={slot.category ? catLabel(slot.category) : 'Archivio'}
         stats={[['CATTURE', list.length], ['ULTIMA', last ? when(last).replace(/ \d{4}$/, '') : '–'], ['TORNEO', tour?.name || '–']]} />
       <h2 className="espa-title">Espansioni <small className="num">{slot.owned.length}/4</small></h2>
