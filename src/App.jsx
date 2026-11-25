@@ -74,7 +74,10 @@ function Team({ m }) {
     const k = Object.keys(HASH).find(k => HASH[k] === decodeURIComponent(location.hash.slice(1)))
     return k && (k !== 'admin' || admin) ? k : 'rank'
   })
-  const setTab = t => { setTabRaw(t); window.scrollTo({ top: 0 }) }
+  // si scorre solo l'area dei contenuti (non la pagina): su iPhone la barra in basso non può più spostarsi
+  const scroller = useRef(null)
+  const toTop = () => { scroller.current?.scrollTo({ top: 0 }); window.scrollTo({ top: 0 }) }
+  const setTab = t => { setTabRaw(t); toTop() }
   useEffect(() => {
     const h = tab === 'rank' ? '' : '#' + HASH[tab]
     if (location.hash !== h) history.replaceState(history.state, '', location.pathname + location.search + h)
@@ -83,7 +86,7 @@ function Team({ m }) {
   useEffect(() => {
     const go = () => {
       const k = Object.keys(HASH).find(k => HASH[k] === decodeURIComponent(location.hash.slice(1)))
-      if (k && (k !== 'admin' || admin)) { if (k === 'profile') setPid(me); setTabRaw(k); window.scrollTo({ top: 0 }) }
+      if (k && (k !== 'admin' || admin)) { if (k === 'profile') setPid(me); setTabRaw(k); toTop() }
     }
     window.addEventListener('hashchange', go)
     return () => window.removeEventListener('hashchange', go)
@@ -246,6 +249,8 @@ function Team({ m }) {
   const tabs = [['rank', 'Classifica', Icon.podium], ['bounty', 'Taglie', Icon.crosshair], ['ranked', 'Ranked', Icon.trophy], ['profile', 'Profilo', Icon.card]]
   const navOn = tab === 'admin' ? 'profile' : tab
   return (
+    <div className="shell">
+    <div className="scroller" ref={scroller}>
     <div className="wrap app">
       <header className="top">
         <img className="logo" src={LOGO} alt={m.teams.name} />
@@ -262,6 +267,8 @@ function Team({ m }) {
         {tab === 'admin' && <AdminPanel d={d} team={team} nick={nick} act={act} part={part} onPart={setPart} active={active} free={free}
           revoke={revoke} saveBounty={saveBounty} uploadPhoto={(b, file) => setCrop({ b, file })} removePhoto={removePhoto} back={() => setTab('profile')} reload={load} adminClaims={adminClaims} isMember={isMember} me={me} />}
       </main>
+    </div>
+    </div>
 
       <nav className="tabbar" aria-label="Sezioni">
         {tabs.map(([k, l, I]) => (

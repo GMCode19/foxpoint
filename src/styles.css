@@ -519,3 +519,12 @@ button.join.on{background:var(--btn2)}
 .row,.ricercato,.tour-card,.stats>div,.hero,.view,.card,.notice,.confirm-card,.feed-item,button.pod{animation-fill-mode:backwards}
 nav.tabbar{-webkit-backdrop-filter:none;backdrop-filter:none;background:#17161C;-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
 @media(min-width:760px){nav.tabbar{-webkit-transform:translateX(-50%);transform:translateX(-50%)}}
+
+/* Struttura: scorre solo l'area dei contenuti, la barra in basso sta fuori (su iPhone, con lo scorrimento
+   della pagina intera, Safari a volte faceva scorrere anche la barra "fissa" insieme ai contenuti) */
+.shell{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+.scroller{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
+@media(max-width:759px){
+  nav.tabbar{position:relative;left:auto;right:auto;bottom:auto;flex:0 0 auto;-webkit-transform:none;transform:none}
+  .wrap.app{padding-bottom:24px}
+}
