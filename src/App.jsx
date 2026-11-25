@@ -6,6 +6,8 @@ import { Ranked } from './Ranked'
 import { AdminPanel } from './Admin'
 import { BountyBoard } from './Bounties'
 import { Leaderboard } from './Leaderboard'
+import { AlbumView } from './Album'
+import { Unlock } from './Unlock'
 import { CropModal } from './Crop'
 import { UIHost, ask, toast } from './ui'
 import { Icon } from './icons'
@@ -52,8 +54,8 @@ function readCache(k) { try { const v = localStorage.getItem(k); return v ? JSON
 function clearCache() { try { Object.keys(localStorage).filter(k => k.startsWith('fx-')).forEach(k => localStorage.removeItem(k)) } catch { /* niente da pulire */ } }
 function writeCache(k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* spazio pieno o modalità privata */ } }
 
-const HASH = { rank: 'classifica', bounty: 'taglie', ranked: 'ranked', profile: 'profilo', admin: 'admin' }
-const TITLE = { rank: 'Classifica', bounty: 'Taglie', ranked: 'Ranked', profile: 'Profilo', admin: 'Admin' }
+const HASH = { rank: 'classifica', bounty: 'taglie', ranked: 'ranked', profile: 'profilo', admin: 'admin', album: 'album' }
+const TITLE = { rank: 'Classifica', bounty: 'Taglie', ranked: 'Ranked', profile: 'Profilo', admin: 'Admin', album: 'Album' }
 let staticData = null   // tabella punti PBI: non cambia, la leggo una volta sola
 
 function build(raw) {
@@ -92,6 +94,7 @@ function Team({ m }) {
     return () => window.removeEventListener('hashchange', go)
   }, [admin, me])
   const [pid, setPid] = useState(me)
+  const [seenLocal, setSeenLocal] = useState(() => new Set())   // carte già mostrate in questa sessione
   const cached = useRef(readCache(cacheKey))
   const [d, setD] = useState(() => cached.current ? build(cached.current.raw) : null)
   const [offline, setOffline] = useState(null)   // ora degli ultimi dati, se non si riesce ad aggiornarli
@@ -109,7 +112,7 @@ function Team({ m }) {
       const season = seasons?.[0]?.id ?? '00000000-0000-0000-0000-000000000000'
       staticData ||= await Promise.all([all('ranked_tiers', x => x.order('sort')), all('ranked_tier_points', x => x.order('tier').order('phase'))])
       const [tiers, tp] = staticData
-      const [board, bounties, claims, bladers, reqs, led, tours, entries, photos] = await Promise.all([
+      const [board, bounties, claims, bladers, reqs, led, tours, entries, photos, album, achievements] = await Promise.all([
         all('leaderboard', x => x.eq('team_id', team).order('fox_points', { ascending: false }).order('nickname')),
         all('bounties', x => x.eq('team_id', team).eq('season_id', season).order('id')),
         all('claims', x => x.eq('team_id', team).eq('season_id', season).order('created_at', { ascending: false }).order('id')),
@@ -119,12 +122,16 @@ function Team({ m }) {
         all('tournaments', x => x.order('starts_at').order('id')),
         all('tournament_entries', x => x.eq('team_id', team).order('id')),
         loadPhotos(team).catch(() => ({})),   // le foto non devono mai bloccare l'app
+        // album: carte di tutte le stagioni (null se il database non ha ancora lo script 14)
+        fetchAll(() => sb.from('claims').select('id, status, bounty_id, hunter_id, target_id, card_rarity, card_seen_at, created_at, played_on, tournament_id')
+          .eq('team_id', team).eq('status', 'approved').not('card_rarity', 'is', null).order('created_at').order('id')).catch(() => null),
+        fetchAll(() => sb.from('album_achievements').select('*').order('unlocked_at')).catch(() => []),
       ])
       if (my !== seq.current) return
       const members = new Set(board.map(r => r.blader_id))
       const avatars = await loadAvatars(bladers.filter(b => members.has(b.id))).catch(() => ({}))
       if (my !== seq.current) return
-      const raw = { board, bounties, claims, bladers, reqs, led, tours, entries, photos, avatars, tiers, tp }
+      const raw = { board, bounties, claims, bladers, reqs, led, tours, entries, photos, avatars, tiers, tp, album, achievements }
       setD(build(raw)); setOffline(null)
       writeCache(cacheKey, { at: Date.now(), raw })
     } catch (e) {
@@ -169,6 +176,12 @@ function Team({ m }) {
     && c.hunter_id !== me && c.target_id !== me) : []
   const todo = admin ? adminClaims.length + d.entries.filter(e => e.status === 'pending').length + d.reqs.length : 0
   const incoming = d.claims.filter(c => c.status === 'pending' && c.target_id === me)   // "dichiara di averti battuto": tocca a me
+  // carte sbloccate e non ancora viste: animazione alla prima apertura (non da offline)
+  const unseen = offline ? [] : (d.album || []).filter(c => c.hunter_id === me && c.status === 'approved' && c.card_rarity && !c.card_seen_at && !seenLocal.has(c.id))
+  const markSeen = items => {
+    setSeenLocal(prev => new Set([...prev, ...items.map(c => c.id)]))
+    sb.rpc('album_mark_seen', { p_ids: items.map(c => c.id) }).then(() => {}, () => {})
+  }
 
   async function respond(c, accept) {
     if (!accept && !await ask({ title: `${nick(c.hunter_id)} non ti ha battuto?`, text: 'La dichiarazione passa a un admin, che deciderà.', ok: 'Non è vero', danger: true })) return
@@ -247,7 +260,7 @@ function Team({ m }) {
   }
 
   const tabs = [['rank', 'Classifica', Icon.podium], ['bounty', 'Taglie', Icon.crosshair], ['ranked', 'Ranked', Icon.trophy], ['profile', 'Profilo', Icon.card]]
-  const navOn = tab === 'admin' ? 'profile' : tab
+  const navOn = tab === 'admin' || tab === 'album' ? 'profile' : tab
   return (
     <div className="shell">
     <div className="scroller" ref={scroller}>
@@ -262,7 +275,8 @@ function Team({ m }) {
         {tab === 'rank' && <Leaderboard d={d} me={me} nick={nick} openProfile={openProfile} />}
         {tab === 'bounty' && <BountyBoard d={d} me={me} active={active} nick={nick} claim={claim} incoming={incoming} respond={respond} isMember={isMember} />}
         {tab === 'ranked' && <Ranked d={d} team={team} me={me} admin={admin} part={part} nick={nick} act={act} />}
-        {tab === 'profile' && <Profile id={pid} me={me} d={d} nick={nick} admin={admin} todo={todo} goTab={setTab} back={() => setTab('rank')} part={part}
+        {tab === 'album' && <AlbumView d={d} who={pid} me={me} nick={nick} back={() => setTab('profile')} />}
+        {tab === 'profile' && <Profile id={pid} me={me} d={d} nick={nick} admin={admin} todo={todo} goTab={setTab} back={() => setTab('rank')} part={part} openAlbum={() => setTab('album')}
           onAvatar={file => setCrop({ avatar: true, file })} removeAvatar={removeAvatar} />}
         {tab === 'admin' && <AdminPanel d={d} team={team} nick={nick} act={act} part={part} onPart={setPart} active={active} free={free}
           revoke={revoke} saveBounty={saveBounty} uploadPhoto={(b, file) => setCrop({ b, file })} removePhoto={removePhoto} back={() => setTab('profile')} reload={load} adminClaims={adminClaims} isMember={isMember} me={me} />}
@@ -282,6 +296,7 @@ function Team({ m }) {
         ))}
       </nav>
 
+      {unseen.length > 0 && <Unlock d={d} items={unseen} nick={nick} onDone={markSeen} onAlbum={() => { setPid(me); setTab('album') }} />}
       {crop && (crop.avatar
         ? <CropModal file={crop.file} name={nick(me)} ratio={1} title="La tua foto profilo" onCancel={() => setCrop(null)} onSave={uploadAvatar} />
         : <CropModal file={crop.file} name={nick(crop.b.target_id)} onCancel={() => setCrop(null)} onSave={img => uploadPhoto(crop.b, img)} />)}

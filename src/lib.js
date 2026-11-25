@@ -109,3 +109,64 @@ export function weekStart(t) {
 }
 // valore delle taglie tra Fox Blader in base alla posizione (uguale al database)
 export const foxValue = pos => pos === 1 ? 60 : pos === 2 ? 50 : pos === 3 ? 40 : pos <= 5 ? 30 : 20
+
+// ===== Album collezionabile =====
+// rarità dalla più bassa alla più alta (stesso ordine del database, script 14)
+export const RARITIES = ['rara', 'epica', 'leggendaria', 'mitica']
+export const RARITY_LABEL = { mitica: 'Mitica', leggendaria: 'Leggendaria', epica: 'Epica', rara: 'Rara' }
+const higher = (a, b) => (RARITIES.indexOf(b) > RARITIES.indexOf(a) ? b : a)
+// rarità di oggi di un ricercato (per le sagome da catturare): stesse regole di card_rarity_of nel database
+export function currentRarity(d, b) {
+  const t = d.bl[b.target_id] || {}, rk = t.pro_rank
+  let best = 'rara'
+  if (b.category === 'fox') {
+    const i = d.board.findIndex(r => r.blader_id === b.target_id), row = d.board[i]
+    const pos = i >= 0 ? positions(d.board)[i] : null
+    best = !row || row.fox_points <= 0 ? 'rara' : pos === 1 ? 'leggendaria' : pos <= 3 ? 'epica' : 'rara'
+  } else {
+    best = higher(best, rk >= 1 && rk <= 3 ? 'mitica' : rk >= 4 && rk <= 10 ? 'leggendaria' : 'rara')
+    best = higher(best, b.category === 'superstar' ? 'leggendaria' : b.category === 'capo' ? 'epica' : rk >= 1 && rk <= 30 ? 'epica' : 'rara')
+  }
+  return t.special_rarity ? higher(best, t.special_rarity) : best
+}
+export const ALBUM_GOALS = [
+  { k: 'first', i: '🃏', n: 'Prima carta', d: 'Sblocca la prima carta' },
+  { k: 'coll10', i: '📒', n: 'Collezionista', d: 'Carte di 10 blader diversi', max: 10 },
+  { k: 'coll25', i: '📚', n: 'Grande collezionista', d: 'Carte di 25 blader diversi', max: 25 },
+  { k: 'coll50', i: '🏛️', n: 'Archivista', d: 'Carte di 50 blader diversi', max: 50 },
+  { k: 'mythic', i: '✨', n: 'Mitica!', d: 'Sblocca una carta mitica' },
+  { k: 'pantheon', i: '🌌', n: 'Pantheon', d: 'Una carta mitica di ognuno dei mitici di oggi' },
+  { k: 'set_top10', i: '👑', n: 'Set Top 10', d: 'Tutti i Top 10 di oggi nell\'album' },
+  { k: 'set_superstar', i: '⭐', n: 'Set Superstar', d: 'Tutte le Superstar nell\'album' },
+  { k: 'set_capo', i: '🛡️', n: 'Set Team leader', d: 'Tutti i Team leader nell\'album' },
+  { k: 'set_rilevante', i: '🎯', n: 'Set Blader rilevanti', d: 'Tutti i Blader rilevanti nell\'album' },
+  { k: 'set_fox', i: '🦊', n: 'Caccia in casa', d: 'Tutti i Fox Blader nell\'album' },
+  { k: 'rivincita', i: '🔁', n: 'Rivincita', d: 'Batti due volte la stessa persona' },
+  { k: 'espansioni', i: '🎴', n: 'Espansioni', d: 'La stessa persona in 3 rarità diverse' },
+]
+// album di un blader: set per categoria (ricercati attivi di oggi) + archivio, con le espansioni possedute
+export function buildAlbum(d, who) {
+  const mine = (d.album || []).filter(c => c.hunter_id === who && c.status === 'approved' && c.card_rarity)
+  const byTarget = new Map()
+  for (const c of mine) {
+    if (!byTarget.has(c.target_id)) byTarget.set(c.target_id, {})
+    const e = byTarget.get(c.target_id)
+    ;(e[c.card_rarity] ||= []).push(c)
+  }
+  const slot = (target, rarity, category) => {
+    const eds = byTarget.get(target) || {}
+    const owned = RARITIES.filter(r => eds[r]).reverse()   // dalla più alta
+    return { target, now: rarity, category, eds, owned, best: owned[0] || null, copies: owned.reduce((s, r) => s + eds[r].length, 0) }
+  }
+  const seen = new Set()
+  const sets = GROUPS.map(([k, label]) => {
+    const slots = d.bounties.filter(b => b.active && b.category === k && b.target_id !== who)
+      .map(b => { seen.add(b.target_id); return slot(b.target_id, currentRarity(d, b), k) })
+      .sort((a, z) => RARITIES.indexOf(z.now) - RARITIES.indexOf(a.now) || (d.bl[a.target]?.pro_rank || 999) - (d.bl[z.target]?.pro_rank || 999))
+    return { k, label, slots, got: slots.filter(s => s.best).length }
+  }).filter(s => s.slots.length)
+  const archive = [...byTarget.keys()].filter(t => !seen.has(t)).map(t => slot(t, null, null))
+  const count = Object.fromEntries(RARITIES.map(r => [r, mine.filter(c => c.card_rarity === r).length]))
+  const total = sets.reduce((s, x) => s + x.slots.length, 0), got = sets.reduce((s, x) => s + x.got, 0)
+  return { sets, archive, count, total, got, people: byTarget.size, cards: mine.length }
+}

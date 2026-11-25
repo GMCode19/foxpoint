@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { sb, BADGES, phaseName, positions } from './lib'
+import { sb, BADGES, phaseName, positions, buildAlbum, ALBUM_GOALS } from './lib'
 import { Sheet, ask } from './ui'
 import { Icon } from './icons'
 import { TradingCard } from './Card'
@@ -13,7 +13,7 @@ const PROGRESS = {
   g: (w, c, r) => [r.some(x => x.phase === 'winner') ? 1 : 0, 1],
 }
 
-export function Profile({ id, me, d, nick, admin, todo, goTab, back, part, onAvatar, removeAvatar }) {
+export function Profile({ id, me, d, nick, admin, todo, goTab, back, part, onAvatar, removeAvatar, openAlbum }) {
   const [help, setHelp] = useState(false)
   const self = id === me
   const b = d.bl[id], row = d.board.find(r => r.blader_id === id)
@@ -45,6 +45,17 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part, onAva
     <TradingCard name={b.nickname} pos={pos} total={row.fox_points} avatar={d.avatars?.[id]} won={won.length} pend={pend} lost={lost}
       ranked={rk} parts={parts} lostPts={lostPts} self={self} onAvatar={onAvatar} />
 
+    {d.album && (() => {
+      const a = buildAlbum(d, id)
+      return (
+        <button type="button" className="album-entry" onClick={openAlbum}>
+          <span className="album-entry-cards" aria-hidden="true"><i className="r-rara" /><i className="r-epica" /><i className="r-leggendaria" /></span>
+          <span><b>Album delle taglie</b><small>{a.got} su {a.total} · {a.cards} {a.cards === 1 ? 'carta' : 'carte'}</small></span>
+          <Icon.chevron />
+        </button>
+      )
+    })()}
+
     <h2>Andamento punti</h2>
     <LineChart pts={pts} self={self} />
 
@@ -62,6 +73,27 @@ export function Profile({ id, me, d, nick, admin, todo, goTab, back, part, onAva
         )
       })}
     </div>
+
+    {d.album && <>
+      <h2>Traguardi dell'album</h2>
+      <div className="goals">
+        {(() => {
+          const got = new Set((d.achievements || []).filter(x => x.blader_id === id).map(x => x.key))
+          const people = new Set((d.album || []).filter(c => c.hunter_id === id && c.status === 'approved').map(c => c.target_id)).size
+          return ALBUM_GOALS.map(x => {
+            const done = got.has(x.k)
+            return (
+              <div key={x.k} className={'goal' + (done ? ' on' : '')}>
+                <span className="goal-ic" aria-hidden="true">{x.i}</span>
+                <span className="goal-txt"><b>{x.n}</b><small>{x.d}</small>
+                  {x.max && !done && <span className="bar" role="progressbar" aria-valuenow={people} aria-valuemax={x.max}><i style={{ width: `${Math.min(people, x.max) / x.max * 100}%` }} /></span>}</span>
+                <span className="goal-state">{done ? <Icon.check width="18" height="18" /> : x.max ? `${Math.min(people, x.max)}/${x.max}` : ''}</span>
+              </div>
+            )
+          })
+        })()}
+      </div>
+    </>}
 
     <h2>Ranked giocate</h2>
     {!rk.length && <div className="empty">{self ? <>Nessuna ranked ancora. <button type="button" className="link" onClick={() => goTab('ranked')}>Guarda le prossime</button></> : 'Nessuna ranked registrata finora.'}</div>}
