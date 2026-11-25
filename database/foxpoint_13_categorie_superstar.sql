@@ -1,5 +1,5 @@
 -- ============================================================
--- Fox Point · 13 · Nuove categorie (Top 10, Blader rilevanti, Capi team, Superstar, Fox Blader)
+-- Fox Point · 13 · Nuove categorie (Top 10, Blader rilevanti, Team leader, Superstar, Fox Blader)
 --                  e nuovi ricercati (lista del 23 novembre 2026, nomi confermati alle 19:00)
 -- Da eseguire nell'SQL Editor di Supabase. Si può rieseguire senza danni,
 -- anche se avevi già eseguito la versione precedente di questo script.
@@ -49,7 +49,7 @@ insert into lista values
   ('Ele01', 'rilevante', 58, null), ('MSD_KingBruce', 'rilevante', 298, 'SDLMN_kingbruce'), ('WB_BAKI', 'rilevante', 37, 'Wb_baki'),
   ('Gianlu_Z', 'rilevante', 47, 'gianluZ'), ('DC_Ernesto_Fiammata', 'rilevante', 22, 'Ernesto fiammata'),
   ('AHJIN_ItsRio', 'rilevante', 38, null), ('LanceDeeVine', 'rilevante', 147, 'Lanceedevine'), ('Zeta90', 'rilevante', 32, null),
-  -- Capi team
+  -- Team leader
   ('RomGattoNero', 'capo', 42, null), ('Zio_fred', 'capo', 36, null), ('DC_Danzika7', 'capo', 310, null),
   ('ImCount', 'capo', 824, null), ('MADB_ChefBobo', 'capo', 190, null), ('MADB_SirBrus22', 'capo', 101, null),
   ('AstroBonny', 'capo', 346, null), ('Vysor90', 'capo', 206, 'Vysor'), ('AHJIN_Lykanos96', 'capo', 815, null),
@@ -125,9 +125,9 @@ where not exists (select 1 from bounties b where b.season_id = s.id and b.target
 
 -- Riepilogo: controlla qui i nomi e i valori
 select e.nick as blader,
-       case e.cat when 'rilevante' then 'Blader rilevanti' when 'capo' then 'Capi team' else 'Superstar' end as categoria_scelta,
+       case e.cat when 'rilevante' then 'Blader rilevanti' when 'capo' then 'Team leader' else 'Superstar' end as categoria_scelta,
        case b.category when 'top10' then 'Top 10 (automatica)' when 'fox' then 'Fox Blader' when 'rilevante' then 'Blader rilevanti'
-                       when 'capo' then 'Capi team' when 'superstar' then 'Superstar' end as categoria_attuale,
+                       when 'capo' then 'Team leader' when 'superstar' then 'Superstar' end as categoria_attuale,
        coalesce(e.prima, '—') as categoria_prima,
        b.value as taglia, b.active as attiva, bl.pro_rank as posizione_pbi,
        case when e.nuovo_blader then 'nuovo' else 'già presente' end as stato
