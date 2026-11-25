@@ -3,13 +3,20 @@ import { sb, ini, buildAlbum, RARITIES, RARITY_LABEL, GROUPS, ALBUM_GOALS } from
 import { Sheet } from './ui'
 import { Icon } from './icons'
 
+// Riquadro dell'immagine centrale del manifesto WANTED (640×960), misurato sui manifesti del team:
+// dentro la cornice nera, senza "WANTED" sopra né "DEAD OR ALIVE" sotto.
+const CROP = { x0: 0.075, x1: 0.924, y0: 0.185, y1: 0.578 }
+const cw = CROP.x1 - CROP.x0, chOverCw = (CROP.y1 - CROP.y0) * 1.5 / cw   // altezza del riquadro / larghezza
+export const POSTER_STYLE = { width: `${100 / cw}%`, left: `${-CROP.x0 / cw * 100}%`, top: `${-CROP.y0 * 1.5 / cw / chOverCw * 100}%` }
+export const ART_RATIO = 1 / chOverCw   // larghezza / altezza del riquadro (circa 10:7)
+
 // immagine della carta: personaggio ritagliato dal manifesto, altrimenti foto profilo, altrimenti iniziali
 export function CardArt({ d, target, name }) {
   const poster = d.photos?.[target], avatar = d.avatars?.[target]
   return (
-    <span className="acard-art">
+    <span className="acard-art" style={{ aspectRatio: ART_RATIO }}>
       <svg className="acard-stadium" viewBox="0 0 200 150" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="100" cy="75" r="64" /><circle cx="100" cy="75" r="38" /><path d="M40 15l120 120M160 15L40 135" /></svg>
-      {poster ? <img className="acard-poster" src={poster} alt="" loading="lazy" />
+      {poster ? <img className="acard-poster" src={poster} alt="" loading="lazy" style={POSTER_STYLE} />
         : avatar ? <img className="acard-avatar" src={avatar} alt="" loading="lazy" />
         : <span className="acard-ini">{ini(name)}</span>}
     </span>
@@ -17,7 +24,7 @@ export function CardArt({ d, target, name }) {
 }
 
 // carta grande (scheda della carta e animazione di sblocco)
-export function BigCard({ d, target, name, rarity, info, copies, sweep }) {
+export function BigCard({ d, target, name, rarity, info, copies, sweep, stats = [] }) {
   return (
     <div className={'acard big r-' + rarity}>
       <div className="acard-in">
@@ -25,6 +32,7 @@ export function BigCard({ d, target, name, rarity, info, copies, sweep }) {
         <CardArt d={d} target={target} name={name} />
         <div className="acard-name"><b>{name}</b></div>
         <div className="acard-info">{info}</div>
+        {stats.length > 0 && <div className="acard-stats">{stats.map(([l, v]) => <span key={l}><b>{v}</b><small>{l}</small></span>)}</div>}
         {copies > 1 && <span className="acard-copies">×{copies}</span>}
         <span className={'acard-foil' + (sweep ? ' sweep' : '')} aria-hidden="true" />
       </div>
@@ -97,7 +105,8 @@ function CardSheet({ d, slot, nick, onClose }) {
   return (
     <Sheet onClose={onClose} label={`Carta di ${nick(slot.target)}`}>
       <BigCard d={d} target={slot.target} name={nick(slot.target)} rarity={sel} copies={list.length}
-        info={`${slot.category ? catLabel(slot.category) + ' · ' : ''}${last ? when(last) : ''}`} />
+        info={slot.category ? catLabel(slot.category) : 'Archivio'}
+        stats={[['CATTURE', list.length], ['ULTIMA', last ? when(last).replace(/ \d{4}$/, '') : '–'], ['TORNEO', tour?.name || '–']]} />
       <h2 className="espa-title">Espansioni <small className="num">{slot.owned.length}/4</small></h2>
       <div className="espa" role="group" aria-label="Espansioni">
         {[...RARITIES].reverse().map(r => {

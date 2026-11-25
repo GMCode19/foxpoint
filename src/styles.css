@@ -658,3 +658,19 @@ button.album-entry small{font-size:.82rem;color:#CDBDF0}
 /* i livelli decorativi dello sblocco non devono mai coprire i tasti */
 .unlock-rays,.unlock-flash,.unlock-trail,.unlock-stars{pointer-events:none}
 .unlock-skip,.unlock-actions{z-index:2}
+/* ritaglio esatto: il riquadro ha le proporzioni dell'immagine centrale del manifesto, l'immagine è posizionata da POSTER_STYLE */
+.acard-art{flex:0 0 auto;width:auto}
+.acard-poster{top:auto;height:auto;max-width:none}
+.acard.mini .acard-in{justify-content:space-between}
+.acard.mini .acard-art{margin:6px 4px 0}
+.acard.big .acard-info{flex:1 1 auto}
+.acard.big{aspect-ratio:5/6.6}
+.unlock-card{aspect-ratio:5/6.6}
+.acard.big .acard-info{flex:0 0 auto;padding:6px 11px 0}
+.acard-stats{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;margin-top:auto;padding:8px 11px 26px;border-top:1px solid #2C2A33}
+.acard-stats span{display:flex;flex-direction:column;min-width:0}
+.acard-stats b{font-family:var(--display);font-stretch:70%;font-weight:800;font-size:1.05rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acard-stats small{font-size:.58rem;letter-spacing:.1em;color:var(--mut)}
+.acard.big .acard-copies{bottom:auto;top:44px;right:16px}
+/* proporzioni del manifesto già prima del caricamento: senza, l'immagine ha altezza 0 e il caricamento "pigro" non parte mai */
+.acard-poster{aspect-ratio:2/3}

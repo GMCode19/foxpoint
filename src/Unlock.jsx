@@ -22,7 +22,8 @@ export function Unlock({ d, items, nick, onDone, onAlbum }) {
   }, [i])
   const last = i === items.length - 1
   const cat = GROUPS.find(g => g[0] === (b?.category))?.[1]
-  const info = [cat, new Date(c.played_on || c.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })].filter(Boolean).join(' · ')
+  const date = new Date(c.played_on || c.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+  const tour = d.tourById[c.tournament_id]
 
   return createPortal(
     <div className={'unlock r-' + c.card_rarity + ' ph-' + phase} role="dialog" aria-modal="true" aria-label="Carta sbloccata">
@@ -40,7 +41,8 @@ export function Unlock({ d, items, nick, onDone, onAlbum }) {
             </div>
           </div>
           <div className="unlock-front">
-            <BigCard d={d} target={c.target_id} name={nick(c.target_id)} rarity={c.card_rarity} info={info} sweep={phase === 'reveal'} />
+            <BigCard d={d} target={c.target_id} name={nick(c.target_id)} rarity={c.card_rarity} info={cat || ''} sweep={phase === 'reveal'}
+              stats={[['CATTURATA', date], ['TORNEO', tour?.name || '–']]} />
           </div>
         </div>
       </div>
