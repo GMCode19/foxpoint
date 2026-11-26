@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react'
-import { sb, LOGO, PHOTO_BUCKET, AVATAR_BUCKET, err, fetchAll, once, loadPhotos, loadAvatars } from './lib'
+import { sb, LOGO, PHOTO_BUCKET, AVATAR_BUCKET, err, fetchAll, once, loadPhotos, loadAvatars, RARITIES } from './lib'
 import { Auth, NewPassword, Join } from './Auth'
 import { Profile } from './Profile'
 import { Ranked } from './Ranked'
@@ -102,6 +102,8 @@ function Team({ m }) {
   const [offline, setOffline] = useState(null)   // ora degli ultimi dati, se non si riesce ad aggiornarli
   const [part, setPart] = useState(m.teams.participation_points)
   const [crop, setCrop] = useState(null)   // { b, file } manifesto di un ricercato, oppure { avatar: true, file } foto profilo
+  // bustina automatica solo "all'ingresso" (avvio o ritorno nell'app): le carte arrivate mentre si usa l'app mostrano un avviso
+  const armed = useRef(true), [autoIds, setAutoIds] = useState(() => new Set()), [packOpen, setPackOpen] = useState(false)
   const seq = useRef(0), lastLoad = useRef(0)   // solo l'ultimo caricamento avviato aggiorna lo schermo
 
   const load = useCallback(async () => {
@@ -135,6 +137,7 @@ function Team({ m }) {
       if (my !== seq.current) return
       const raw = { board, bounties, claims, bladers, reqs, led, tours, entries, photos, avatars, tiers, tp, album, achievements }
       setD(build(raw)); setOffline(null)
+      if (armed.current) { armed.current = false; setAutoIds(new Set((album || []).filter(c => c.hunter_id === me && !c.card_seen_at).map(c => c.id))) }
       writeCache(cacheKey, { at: Date.now(), raw })
     } catch (e) {
       if (my !== seq.current) return
@@ -154,7 +157,7 @@ function Team({ m }) {
       ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `team_id=eq.${team}` }, kick)
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, kick)
     ch.subscribe()
-    const vis = () => { if (document.visibilityState === 'visible' && Date.now() - lastLoad.current > 15000) load() }
+    const vis = () => { if (document.visibilityState === 'visible' && Date.now() - lastLoad.current > 15000) { armed.current = true; load() } }
     document.addEventListener('visibilitychange', vis)
     window.addEventListener('online', load)
     return () => { clearTimeout(t); sb.removeChannel(ch); document.removeEventListener('visibilitychange', vis); window.removeEventListener('online', load) }
@@ -183,6 +186,7 @@ function Team({ m }) {
   const markSeen = items => {
     setSeenLocal(prev => new Set([...prev, ...items.map(c => c.id)]))
     sb.rpc('album_mark_seen', { p_ids: items.map(c => c.id) }).then(() => {}, () => {})
+    setPackOpen(false)
   }
 
   async function respond(c, accept) {
@@ -298,7 +302,15 @@ function Team({ m }) {
         ))}
       </nav>
 
-      {unseen.length > 0 && <Suspense fallback={null}><Unlock d={d} items={unseen} nick={nick} onDone={markSeen} onAlbum={() => { setPid(me); setTab('album') }} /></Suspense>}
+      {unseen.length > 0 && !packOpen && !unseen.some(c => autoIds.has(c.id)) && (() => {
+        const top = unseen.reduce((a, c) => RARITIES.indexOf(c.card_rarity) > RARITIES.indexOf(a.card_rarity) ? c : a)
+        return <button className={'newcard r-' + top.card_rarity} onClick={() => setPackOpen(true)}>
+          <span className="newcard-pk" aria-hidden="true" />
+          <span><b>{unseen.length === 1 ? 'Nuova carta sbloccata' : unseen.length + ' nuove carte sbloccate'}</b><small>Tocca per aprire la bustina</small></span>
+          <span className="newcard-go">Apri</span>
+        </button>
+      })()}
+      {unseen.length > 0 && (packOpen || unseen.some(c => autoIds.has(c.id))) && <Suspense fallback={null}><Unlock d={d} items={unseen} nick={nick} onDone={markSeen} onAlbum={() => { setPid(me); setTab('album') }} /></Suspense>}
       {crop && (crop.avatar
         ? <CropModal file={crop.file} name={nick(me)} ratio={1} title="La tua foto profilo" onCancel={() => setCrop(null)} onSave={uploadAvatar} />
         : <CropModal file={crop.file} name={nick(crop.b.target_id)} onCancel={() => setCrop(null)} onSave={img => uploadPhoto(crop.b, img)} />)}

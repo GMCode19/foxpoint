@@ -797,3 +797,23 @@ button.po-icon{width:44px;height:44px;padding:0;display:grid;place-items:center;
 .po .acard-stage:not(.live) .acard.big .acard-holo{animation:none}
 .po .acard.big.r-leggendaria,.po .acard.big.r-mitica{animation:none}
 .po-rays{will-change:transform}
+
+/* ===== avviso "nuova carta" (arrivata mentre si usa l'app) ===== */
+.newcard{position:fixed;z-index:45;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom));
+  margin:0 auto;max-width:520px;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;text-align:left;text-transform:none;letter-spacing:0;
+  background:linear-gradient(100deg,#21183a,#15111f);color:#f2eef8;border:1px solid var(--nc);box-shadow:0 12px 32px rgba(0,0,0,.55),0 0 22px -6px var(--nc);
+  animation:toastup .35s cubic-bezier(.2,.9,.25,1) both;clip-path:none;font-weight:500}
+.newcard.r-rara{--nc:#7fb2ff}.newcard.r-epica{--nc:#c48bff}.newcard.r-leggendaria{--nc:#ffc94d}.newcard.r-mitica{--nc:#ff8bd8}
+.newcard>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.newcard b{font-family:var(--display,inherit);font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.newcard small{color:#b9b0c9;font-size:.78rem}
+.newcard-pk{flex:none;width:30px;height:42px;border-radius:5px;background:linear-gradient(160deg,#6c3fd1,#2a1858);border:1px solid var(--nc);position:relative;overflow:hidden;
+  animation:ncwig 2.4s ease-in-out infinite}
+.newcard-pk::after{content:"";position:absolute;inset:-40% auto -40% -60%;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:ncshine 2.4s ease-in-out infinite}
+@keyframes ncwig{0%,70%,100%{transform:none}76%{transform:rotate(-7deg)}82%{transform:rotate(6deg)}88%{transform:rotate(-3deg)}}
+@keyframes ncshine{0%,40%{transform:translateX(0) skewX(-20deg)}75%,100%{transform:translateX(420%) skewX(-20deg)}}
+.newcard-go{flex:none;padding:8px 14px;border-radius:10px;background:var(--nc);color:#160f22;font-weight:800;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}
+body:has(.sheet-wrap) .newcard{display:none}
+@media(min-width:760px){.newcard{bottom:100px}}
+@media(prefers-reduced-motion:reduce){.newcard,.newcard-pk,.newcard-pk::after{animation:none}}
+body:has(.newcard) .scroller::after{content:"";display:block;height:76px}  /* l'avviso non copre l'ultima riga */
