@@ -18,8 +18,8 @@ export function CardArt({ d, target, name }) {
   return (
     <span className="acard-art" style={{ aspectRatio: ART_RATIO }}>
       <svg className="acard-stadium" viewBox="0 0 200 150" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="100" cy="75" r="64" /><circle cx="100" cy="75" r="38" /><path d="M40 15l120 120M160 15L40 135" /></svg>
-      {poster ? <img key="p" className="acard-poster" src={poster} alt="" loading="lazy" decoding="async" style={POSTER_STYLE} onError={() => setBad(b => ({ ...b, p: 1 }))} />
-        : avatar ? <img key="a" className="acard-avatar" src={avatar} alt="" loading="lazy" decoding="async" onError={() => setBad(b => ({ ...b, a: 1 }))} />
+      {poster ? <img key="p" className="acard-poster" src={poster} alt="" draggable={false} loading="lazy" decoding="async" style={POSTER_STYLE} onError={() => setBad(b => ({ ...b, p: 1 }))} />
+        : avatar ? <img key="a" className="acard-avatar" src={avatar} alt="" draggable={false} loading="lazy" decoding="async" onError={() => setBad(b => ({ ...b, a: 1 }))} />
         : <span className="acard-ini">{ini(name)}</span>}
     </span>
   )

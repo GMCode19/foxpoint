@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react'
 import { sb, LOGO, PHOTO_BUCKET, AVATAR_BUCKET, err, fetchAll, once, loadPhotos, loadAvatars } from './lib'
 import { Auth, NewPassword, Join } from './Auth'
 import { Profile } from './Profile'
@@ -7,10 +7,12 @@ import { AdminPanel } from './Admin'
 import { BountyBoard } from './Bounties'
 import { Leaderboard } from './Leaderboard'
 import { AlbumView } from './Album'
-import { Unlock } from './Unlock'
 import { CropModal } from './Crop'
 import { UIHost, ask, toast } from './ui'
 import { Icon } from './icons'
+
+// l'apertura delle bustine (con GSAP) si scarica solo quando c'è davvero una carta da sbloccare
+const Unlock = lazy(() => import('./Unlock').then(m => ({ default: m.Unlock })))
 
 export default function App() {
   const [session, setSession] = useState(undefined), [recovery, setRecovery] = useState(false)
@@ -296,7 +298,7 @@ function Team({ m }) {
         ))}
       </nav>
 
-      {unseen.length > 0 && <Unlock d={d} items={unseen} nick={nick} onDone={markSeen} onAlbum={() => { setPid(me); setTab('album') }} />}
+      {unseen.length > 0 && <Suspense fallback={null}><Unlock d={d} items={unseen} nick={nick} onDone={markSeen} onAlbum={() => { setPid(me); setTab('album') }} /></Suspense>}
       {crop && (crop.avatar
         ? <CropModal file={crop.file} name={nick(me)} ratio={1} title="La tua foto profilo" onCancel={() => setCrop(null)} onSave={uploadAvatar} />
         : <CropModal file={crop.file} name={nick(crop.b.target_id)} onCancel={() => setCrop(null)} onSave={img => uploadPhoto(crop.b, img)} />)}
