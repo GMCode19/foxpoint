@@ -718,3 +718,86 @@ button.album-entry small{font-size:.82rem;color:#CDBDF0}
 .r-mitica .acard-holo{opacity:.3;-webkit-mask-image:radial-gradient(ellipse 60% 45% at 50% 38%,rgba(0,0,0,.45),#000 80%);mask-image:radial-gradient(ellipse 60% 45% at 50% 38%,rgba(0,0,0,.45),#000 80%)}
 .r-mitica .acard-glitter{opacity:.6}
 .acard.mini.r-leggendaria .acard-holo,.acard.mini.r-mitica .acard-holo{opacity:.25}
+
+/* ===================== APERTURA BUSTINA ===================== */
+.unlock-count{position:absolute;top:calc(22px + env(safe-area-inset-top));left:18px;font-family:var(--display);font-stretch:75%;font-weight:700;font-size:.8rem;letter-spacing:.12em;color:var(--mut);text-transform:uppercase}
+.unlock-skip{z-index:3}
+/* bustina */
+.pack{position:relative;width:min(56vw,210px);aspect-ratio:7/10;display:flex;flex-direction:column;filter:drop-shadow(0 18px 30px rgba(0,0,0,.6));margin-top:-20px}
+.unlock.ph-pack .pack{animation:packin .55s cubic-bezier(.2,.9,.3,1.25) both,packshake 2.6s ease-in-out .6s infinite}
+@keyframes packin{from{transform:translateY(40vh) scale(.6) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes packshake{0%,70%,100%{transform:none}74%{transform:rotate(-2.5deg)}78%{transform:rotate(2.5deg)}82%{transform:rotate(-1.5deg)}86%{transform:rotate(1deg)}}
+.pack-strip{position:relative;height:16%;flex:none;cursor:grab;touch-action:none;
+  background:linear-gradient(115deg,#4A2C8C,#2A1A52 40%,#6B3FD0 60%,#2A1A52);border-bottom:2px dashed rgba(255,255,255,.35)}
+.pack-body{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;overflow:hidden;color:#3B2A66;
+  background:linear-gradient(135deg,#3B2470,#1A1428 45%,#4A2C8C 70%,#1A1428);background-size:200% 200%;animation:packfoil 4s ease-in-out infinite alternate}
+@keyframes packfoil{from{background-position:0 0}to{background-position:100% 100%}}
+.pack-stadium{position:absolute;width:120%;height:auto;opacity:.6}
+.pack-body img{position:relative;width:46%;height:auto}
+.pack-body b{position:relative;font-family:var(--display);font-stretch:62%;font-weight:900;font-size:1.5rem;letter-spacing:.24em;color:#E9D8FF}
+.pack-body small{position:relative;font-family:var(--display);font-stretch:75%;font-weight:700;font-size:.62rem;letter-spacing:.16em;color:#B38CFF}
+.pack-crimp{position:absolute;left:0;right:0;top:0;height:8px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.25) 0 3px,transparent 3px 7px)}
+.pack-crimp.bottom{top:auto;bottom:0}
+/* la luce che filtra dalla linea di strappo: colore e intensità dicono la rarità */
+.pack-tearline{position:absolute;left:0;right:0;bottom:-3px;height:4px;box-shadow:0 0 calc(8px + var(--leak) * 22px) calc(var(--leak) * 4px) var(--rc);background:var(--rc);opacity:calc(.35 + var(--leak) * .65)}
+.unlock.r-rara{--leak:.15}.unlock.r-epica{--leak:.4}.unlock.r-leggendaria{--leak:.7}.unlock.r-mitica{--leak:1}
+.unlock.ph-pack .pack-tearline{animation:leak 1.3s ease-in-out infinite alternate}
+@keyframes leak{from{filter:brightness(.8)}to{filter:brightness(1.6)}}
+.pack-tearline i{position:absolute;left:0;top:-3px;height:10px;background:#fff;box-shadow:0 0 14px #fff,0 0 30px var(--rc)}
+/* strappo */
+.unlock.ph-tear .pack-strip{animation:stripfly .65s cubic-bezier(.3,.1,.6,1) both}
+@keyframes stripfly{to{transform:translate(-60vw,-30vh) rotate(-70deg);opacity:0}}
+.unlock.ph-tear .pack-body,.unlock.ph-rise .pack-body{animation:bodydrop 1.2s cubic-bezier(.5,0,.7,.4) .25s both}
+.unlock.ph-rise .pack-strip{opacity:0}
+@keyframes bodydrop{to{transform:translateY(70vh) rotate(6deg);opacity:0}}
+/* scintille */
+.unlock-burst{position:absolute;left:50%;top:42%;width:0;height:0;pointer-events:none}
+.unlock-burst i{position:absolute;width:7px;height:7px;margin:-3.5px;border-radius:50%;background:var(--rc);box-shadow:0 0 10px var(--rc);animation:burst .8s cubic-bezier(.1,.8,.3,1) both}
+@keyframes burst{from{transform:rotate(var(--a)) translateX(0) scale(1);opacity:1}to{transform:rotate(var(--a)) translateX(var(--d)) scale(.2);opacity:0}}
+.unlock.r-mitica .unlock-burst i:nth-child(3n){background:#8EF0FF;box-shadow:0 0 10px #8EF0FF}.unlock.r-mitica .unlock-burst i:nth-child(3n+1){background:#FF8AD8;box-shadow:0 0 10px #FF8AD8}
+.unlock.ph-reveal .unlock-burst i{animation-duration:1.1s}
+.unlock.ph-reveal.r-rara .unlock-burst{display:none}
+/* carta che esce, fluttua, suspense, si gira */
+.unlock.ph-rise .unlock-card{animation:cardrise .75s cubic-bezier(.2,.9,.3,1.15) both}
+@keyframes cardrise{from{transform:translateY(22vh) scale(.55);opacity:0}to{transform:none;opacity:1}}
+.unlock.ph-ready .unlock-card{cursor:pointer;animation:bob 2.2s ease-in-out infinite}
+.unlock.ph-ready .unlock-back{box-shadow:none;filter:drop-shadow(0 0 calc(6px + var(--leak) * 18px) var(--rc))}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-10px) rotate(1deg)}}
+.unlock.ph-build{background:#060509}
+.unlock.ph-build .unlock-card{animation:buildshake .9s cubic-bezier(.4,0,.6,1) both}
+@keyframes buildshake{0%{transform:none}20%{transform:translate(-2px,1px) rotate(-1deg)}40%{transform:translate(3px,-2px) rotate(1.5deg) scale(1.02)}60%{transform:translate(-4px,2px) rotate(-2deg) scale(1.04)}80%{transform:translate(5px,-3px) rotate(2.5deg) scale(1.06)}100%{transform:scale(1.08)}}
+.unlock.ph-build .unlock-back{filter:drop-shadow(0 0 30px #FF8AD8) drop-shadow(0 0 50px #8EF0FF)}
+.unlock.ph-flip .unlock-card,.unlock.ph-reveal .unlock-card{animation:none}
+.unlock.ph-reveal.r-mitica .unlock-card{animation:mythicpop .5s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes mythicpop{from{transform:scale(1.15)}to{transform:none}}
+/* onda d'urto alla rivelazione */
+.unlock-wave{position:absolute;left:50%;top:42%;width:240px;height:240px;margin:-120px 0 0 -120px;border-radius:50%;border:5px solid var(--rc);box-shadow:0 0 30px var(--rc);pointer-events:none;animation:uflash .7s ease-out both}
+.unlock.r-rara .unlock-wave{border-width:2px;opacity:.6}
+/* pioggia d'oro */
+.unlock-rain{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.unlock-rain i{position:absolute;top:-10px;width:6px;height:6px;background:#FFE29A;box-shadow:0 0 8px #F2C14E;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);animation:rain 2.4s linear infinite}
+@keyframes rain{from{transform:translateY(0) rotate(0)}to{transform:translateY(110vh) rotate(540deg)}}
+/* timbro MITICA */
+.unlock-stamp{position:absolute;left:50%;top:18%;transform:translateX(-50%) rotate(-12deg);padding:4px 16px;border:4px solid #FFE68A;color:#FFE68A;font-family:var(--display);font-stretch:62%;font-weight:900;font-size:2.4rem;letter-spacing:.2em;
+  text-shadow:0 0 18px #FF8AD8;box-shadow:0 0 24px rgba(255,138,216,.5),inset 0 0 18px rgba(142,240,255,.3);pointer-events:none;animation:stampslam .45s cubic-bezier(.2,1.4,.4,1) .25s both}
+@keyframes stampslam{from{transform:translateX(-50%) rotate(-12deg) scale(2.6);opacity:0}to{transform:translateX(-50%) rotate(-12deg) scale(1);opacity:1}}
+/* suggerimenti */
+.unlock-hint{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;animation:rise .4s .3s both}
+.unlock-hint span{font-family:var(--display);font-stretch:75%;font-weight:800;font-size:1.05rem;letter-spacing:.14em;text-transform:uppercase;color:#E9E4F5}
+.unlock-hint small{font-size:.82rem;color:var(--mut)}
+.unlock-hint .link{min-height:44px;color:var(--ac)}
+.unlock.ph-ready .unlock-hint span{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+.unlock-rays,.unlock-wave,.unlock-burst,.unlock-rain,.unlock-stamp,.unlock-stars{pointer-events:none}
+@media(prefers-reduced-motion:reduce){.unlock *{animation:none!important;transition:none!important}}
+/* il logo ha lo sfondo nero: in "screen" il nero sparisce e resta solo il disegno */
+.pack-body img,.unlock-back-in img{mix-blend-mode:screen}
+/* il timbro MITICA cade, resta un attimo e poi sparisce, per lasciare libera la carta */
+.unlock-stamp{animation:stampslam .45s cubic-bezier(.2,1.4,.4,1) .25s both,stampout .5s ease-in 1.7s forwards}
+@keyframes stampout{to{opacity:0;transform:translateX(-50%) rotate(-12deg) scale(1.15)}}
+/* il fronte esiste solo quando la carta si gira (niente anticipazioni); l'alone è un elemento a parte, senza filtri sulla carta */
+.unlock.ph-ready .unlock-back,.unlock.ph-build .unlock-back{filter:none}
+.unlock-glow{position:absolute;inset:6%;border-radius:12px;opacity:0;box-shadow:0 0 calc(10px + var(--leak) * 26px) calc(4px + var(--leak) * 8px) var(--rc);transition:opacity .4s;pointer-events:none}
+.unlock.ph-ready .unlock-glow{opacity:.85;animation:leak 1.3s ease-in-out infinite alternate}
+.unlock.ph-build .unlock-glow{opacity:1;box-shadow:0 0 34px 12px #FF8AD8,0 0 60px 20px #8EF0FF}
+.unlock.ph-flip .unlock-glow,.unlock.ph-reveal .unlock-glow{opacity:0}
