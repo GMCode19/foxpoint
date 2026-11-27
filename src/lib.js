@@ -170,3 +170,11 @@ export function buildAlbum(d, who) {
   const total = sets.reduce((s, x) => s + x.slots.length, 0), got = sets.reduce((s, x) => s + x.got, 0)
   return { sets, archive, count, total, got, people: byTarget.size, cards: mine.length }
 }
+
+// bustina 3D: solo dove c'è WebGL2 e il telefono non è tra i più deboli (altrimenti resta la bustina classica).
+// Interruttore manuale: localStorage 'fx-pack3d' = 'off'
+export function want3d() {
+  try { if (window.__packCss || localStorage.getItem('fx-pack3d') === 'off') return false } catch { /* memoria bloccata */ }
+  if (!window.WebGL2RenderingContext) return false
+  return window.__pack3d === true || (navigator.hardwareConcurrency || 8) > 2     // __pack3d: solo per le prove automatiche
+}

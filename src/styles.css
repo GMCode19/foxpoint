@@ -817,3 +817,15 @@ body:has(.sheet-wrap) .newcard{display:none}
 @media(min-width:760px){.newcard{bottom:100px}}
 @media(prefers-reduced-motion:reduce){.newcard,.newcard-pk,.newcard-pk::after{animation:none}}
 body:has(.newcard) .scroller::after{content:"";display:block;height:76px}  /* l'avviso non copre l'ultima riga */
+
+/* ===== bustina 3D ===== */
+.po-gl{position:absolute;inset:0;z-index:2;touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.po-gl:active{cursor:grabbing}
+.po-gl canvas{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
+.po.gl .po-hint{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));padding:0 16px}
+/* attesa della bustina 3D: compare solo se serve più di mezzo secondo */
+.po-wait{position:absolute;left:0;right:0;top:50%;translate:0 -50%;z-index:3;display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;animation:wait-in .4s .6s forwards;pointer-events:none}
+.po-wait span{font-family:var(--display);font-stretch:75%;font-weight:700;font-size:.8rem;letter-spacing:.22em;text-transform:uppercase;color:var(--mut)}
+.po-wait i{width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.12);border-top-color:var(--rc);animation:wait-spin .9s linear infinite}
+@keyframes wait-in{to{opacity:1}}@keyframes wait-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.po-wait i{animation:none}}

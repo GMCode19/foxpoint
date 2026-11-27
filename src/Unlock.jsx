@@ -1,14 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { gsap } from 'gsap'
-import { RARITIES, RARITY_LABEL, GROUPS } from './lib'
+import { RARITIES, RARITY_LABEL, GROUPS, want3d } from './lib'
 import { BigCard, CardArt } from './Album'
 import { stillMotion } from './Launcher'
 import { createParticles } from './particles'
 import { sfxTear, sfxWhoosh, sfxCharge, sfxReveal, buzz, soundOn, setSound } from './sfx'
 
 // Apertura della bustina Lake Fox (caricata solo quando c'è una carta da sbloccare).
-//  pack     bustina con la luce della carta più rara che filtra dallo strappo; si strappa col dito (o tocco / "Apri")
+//  pack     bustina (3D dove il telefono la regge, altrimenti quella classica) con la luce della carta più rara che filtra dallo strappo; si strappa col dito (o tocco / "Apri")
 //  opening  il lembo vola via, la bustina scende, le carte salgono coperte
 //  deck     carta coperta in cima al mazzetto: un tocco per girarla
 //  charge   solo leggendarie e mitiche: tensione (la carta trema, la luce cresce; per le mitiche lo schermo si oscura e si crepa)
@@ -19,6 +19,8 @@ const COLORS = {
   rara: ['#FFFFFF', '#DCD9E6', '#A9A5B4'], epica: ['#C9A8FF', '#8E5BEA', '#8EF0FF'],
   leggendaria: ['#FFE29A', '#F2C14E', '#FFF6D8'], mitica: ['#FF8AD8', '#8EF0FF', '#FFE68A', '#B38CFF', '#FFFFFF'],
 }
+const GL_COLOR = { rara: '#C8C6CE', epica: '#C9A8FF', leggendaria: '#F2C14E', mitica: '#FF8AD8' }
+const GL_LEAK = { rara: 0.15, epica: 0.45, leggendaria: 0.75, mitica: 1 }
 const rank = r => RARITIES.indexOf(r)
 const fmt = c => new Date(c.played_on || c.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
 
@@ -31,6 +33,10 @@ export function Unlock({ d, items: incoming, nick, onDone, onAlbum }) {
   const root = useRef(null), canvas = useRef(null), fx = useRef(null), strip = useRef(null), body = useRef(null), pack = useRef(null)
   const deck = useRef(null), flash = useRef(null), dark = useRef(null), cracks = useRef(null), stamp = useRef(null), drag = useRef(null), swipe = useRef(null)
   const tl = useRef([])
+  // bustina 3D: 'loading' (si scarica) -> '3d'; se non parte o ci mette troppo, ripiega sulla classica ('css')
+  const [gl, setGl] = useState(() => (still || !want3d() ? 'css' : 'loading'))
+  const glHost = useRef(null), glApi = useRef(null), openRef = useRef(null), phaseRef = useRef(phase)
+  phaseRef.current = phase
   const top = items.reduce((m, c) => (rank(c.card_rarity) > rank(m) ? c.card_rarity : m), 'rara')
   const c = items[idx], r = c?.card_rarity
   const run = t => { tl.current.push(t); return t }
@@ -43,11 +49,37 @@ export function Unlock({ d, items: incoming, nick, onDone, onAlbum }) {
   }, [still])
   // entrata della bustina e suggerimento dopo qualche secondo senza strappo
   useLayoutEffect(() => {
-    if (phase !== 'pack' || !pack.current) return
-    run(gsap.fromTo(pack.current, { y: '55vh', rotation: -12, scale: 0.7, opacity: 0 }, { y: 0, rotation: 0, scale: 1, opacity: 1, duration: 0.7, ease: 'back.out(1.5)' }))
+    if (phase !== 'pack') return
+    if (pack.current) run(gsap.fromTo(pack.current, { y: '55vh', rotation: -12, scale: 0.7, opacity: 0 }, { y: 0, rotation: 0, scale: 1, opacity: 1, duration: 0.7, ease: 'back.out(1.5)' }))
     const t = setTimeout(() => setHint(true), 3500)
     return () => clearTimeout(t)
-  }, [phase === 'pack'])
+  }, [phase === 'pack', gl === 'css'])
+
+  // bustina 3D: si scarica e si prepara mentre lo sfondo è già visibile; la bustina entra solo quando è pronta (nessun cambio a vista)
+  useEffect(() => {
+    if (gl !== 'loading') return
+    let settled = false
+    const fallback = () => { if (!settled) { settled = true; setGl('css') } }
+    const timer = setTimeout(fallback, window.__packLimit || 7000)
+    import('./Pack3D').then(m => m.createPack3D(glHost.current, {
+      color: GL_COLOR[top], leak: GL_LEAK[top], count: items.length,
+      onGrab: () => setHint(false),
+      onTear: (p, x, y) => {
+        if (Math.random() > 0.5 || !root.current) return
+        const b = root.current.getBoundingClientRect()
+        fx.current?.burst(x - b.left, y - b.top, { n: 3, colors: COLORS[top], speed: [60, 180], life: [0.3, 0.6], grav: 500 })
+      },
+      onCommit: () => openRef.current?.(),
+      onLost: () => { if (phaseRef.current === 'pack') { glApi.current = null; setGl('css') } },
+    })).then(api => {
+      if (settled) { api.destroy(); return }                      // arrivata troppo tardi: si usa già la classica
+      settled = true; clearTimeout(timer); glApi.current = api; setGl('3d'); api.enter()
+    }).catch(fallback)
+    return () => { settled = true; clearTimeout(timer) }
+  }, [])
+  // finita la bustina (o chiusa l'apertura) la scena 3D si libera subito
+  useEffect(() => { if (phase !== 'pack' && phase !== 'opening') { glApi.current?.destroy(); glApi.current = null } }, [phase])
+  useEffect(() => () => { glApi.current?.destroy(); glApi.current = null }, [])
 
   const center = el => {
     const a = el.getBoundingClientRect(), b = root.current.getBoundingClientRect()
@@ -63,13 +95,24 @@ export function Unlock({ d, items: incoming, nick, onDone, onAlbum }) {
     if (phase !== 'pack') return
     drag.current = null; setCut(1); setHint(false); askMotion()
     sfxTear(); buzz(30); setPhase('opening')
+    const g3 = glApi.current
+    if (g3) {
+      const s = g3.seam(), b = root.current.getBoundingClientRect()
+      fx.current?.burst(s.x - b.left, s.y - b.top, { n: 26 + rank(top) * 10, colors: COLORS[top], speed: [180, 460], grav: 700 })
+      const toDeck = () => setPhase(p => (p === 'opening' ? 'deck' : p))
+      run(g3.open().add(() => sfxWhoosh(true), 0.3).eventCallback('onComplete', toDeck))
+      const safety = setTimeout(toDeck, 2600)                       // telefono in affanno: l'animazione non deve mai bloccare il passaggio alle carte
+      run({ kill: () => clearTimeout(safety) })
+      return
+    }
     const [x, y] = center(strip.current)
     fx.current?.burst(x, y, { n: 26 + rank(top) * 10, colors: COLORS[top], speed: [180, 460], grav: 700 })
-    run(gsap.timeline({ onComplete: () => setPhase('deck') })
+    run(gsap.timeline({ onComplete: () => setPhase(p => (p === 'opening' ? 'deck' : p)) })
       .to(strip.current, { x: -260, y: -230, rotation: -75, opacity: 0, duration: 0.6, ease: 'power2.in' }, 0)
       .to(body.current, { y: '75vh', rotation: 5, opacity: 0, duration: 0.75, ease: 'power2.in' }, 0.2)
       .add(() => sfxWhoosh(true), 0.35))
   }
+  openRef.current = open
   const tearProps = {
     onPointerDown: e => { if (phase !== 'pack') return; const b = e.currentTarget.getBoundingClientRect(); drag.current = { x: e.clientX, w: b.width, left: b.left, moved: false }; setHint(false); try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* vecchi browser */ } },
     onPointerMove: e => {
@@ -158,7 +201,7 @@ export function Unlock({ d, items: incoming, nick, onDone, onAlbum }) {
   const last = idx === items.length - 1
 
   return createPortal(
-    <div ref={root} className={`po is-${phase} pr-${phase === 'pack' || phase === 'opening' ? top : r || top}`} role="dialog" aria-modal="true" aria-label="Apertura bustina">
+    <div ref={root} className={`po is-${phase} pr-${phase === 'pack' || phase === 'opening' ? top : r || top}${gl !== 'css' && (phase === 'pack' || phase === 'opening') ? ' gl' : ''}`} role="dialog" aria-modal="true" aria-label="Apertura bustina">
       <div className="po-bg" aria-hidden="true" />
       {(phase === 'shown' || phase === 'flip') && (r === 'leggendaria' || r === 'mitica') && <div className="po-rays" aria-hidden="true" />}
       <div ref={dark} className="po-dark" aria-hidden="true" />
@@ -173,7 +216,9 @@ export function Unlock({ d, items: incoming, nick, onDone, onAlbum }) {
       </div>
 
       {/* bustina */}
-      {(phase === 'pack' || phase === 'opening') && (
+      {phase === 'pack' && gl === 'loading' && <div className="po-wait" role="status"><i aria-hidden="true" /><span>Preparo la bustina</span></div>}
+      {(phase === 'pack' || phase === 'opening') && gl !== 'css' && <div ref={glHost} className="po-gl" data-state={gl} data-rarity={top} />}
+      {(phase === 'pack' || phase === 'opening') && gl === 'css' && (
         <div ref={pack} className="po-pack">
           <div ref={strip} className="po-strip" style={{ '--cut': cut }} {...tearProps}>
             <span className="po-guide" aria-hidden="true" />
@@ -220,9 +265,9 @@ export function Unlock({ d, items: incoming, nick, onDone, onAlbum }) {
       <div ref={flash} className="po-flash" aria-hidden="true" />
 
       {/* testi e tasti */}
-      {phase === 'pack' && <div className="po-hint">
+      {phase === 'pack' && gl !== 'loading' && <div className="po-hint">
         <span>Strappa la bustina</span>
-        <small className={hint ? 'on' : ''}>Fai scorrere il dito lungo il bordo in alto, oppure tocca</small>
+        <small className={hint ? 'on' : ''}>{gl === '3d' ? 'Fai scorrere il dito sul bordo in alto, oppure tocca. Trascinala per girarla' : 'Fai scorrere il dito lungo il bordo in alto, oppure tocca'}</small>
         <button type="button" className="link" onClick={open}>Apri</button>
       </div>}
       {phase === 'deck' && <div className="po-hint"><span className="pulse">Tocca la carta per girarla</span></div>}

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react'
-import { sb, LOGO, PHOTO_BUCKET, AVATAR_BUCKET, err, fetchAll, once, loadPhotos, loadAvatars, RARITIES } from './lib'
+import { sb, LOGO, PHOTO_BUCKET, AVATAR_BUCKET, err, fetchAll, once, loadPhotos, loadAvatars, RARITIES, want3d } from './lib'
 import { Auth, NewPassword, Join } from './Auth'
 import { Profile } from './Profile'
 import { Ranked } from './Ranked'
@@ -13,6 +13,9 @@ import { Icon } from './icons'
 
 // l'apertura delle bustine (con GSAP) si scarica solo quando c'è davvero una carta da sbloccare
 const Unlock = lazy(() => import('./Unlock').then(m => ({ default: m.Unlock })))
+
+// avviso "nuova carta": intanto si prepara la bustina 3D, così al tocco parte subito
+function Warm3D() { useEffect(() => { if (want3d()) import('./Pack3D').catch(() => {}) }, []); return null }
 
 export default function App() {
   const [session, setSession] = useState(undefined), [recovery, setRecovery] = useState(false)
@@ -305,6 +308,7 @@ function Team({ m }) {
       {unseen.length > 0 && !packOpen && !unseen.some(c => autoIds.has(c.id)) && (() => {
         const top = unseen.reduce((a, c) => RARITIES.indexOf(c.card_rarity) > RARITIES.indexOf(a.card_rarity) ? c : a)
         return <button className={'newcard r-' + top.card_rarity} onClick={() => setPackOpen(true)}>
+          <Warm3D />
           <span className="newcard-pk" aria-hidden="true" />
           <span><b>{unseen.length === 1 ? 'Nuova carta sbloccata' : unseen.length + ' nuove carte sbloccate'}</b><small>Tocca per aprire la bustina</small></span>
           <span className="newcard-go">Apri</span>
